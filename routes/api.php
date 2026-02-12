@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\LeaveRequestController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\BrandingController;
 
 // Endpoint Login (Bisa diakses tanpa login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -22,4 +23,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/offices', [OfficeController::class, 'index']);
     Route::post('/attendance', [AttendanceController::class, 'store']);
     Route::post('/leave', [LeaveRequestController::class, 'store']);
+    Route::get('/branding/{nik}', [BrandingController::class, 'index']);
 });

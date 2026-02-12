@@ -15,5 +15,7 @@ class Company extends Model
         'radius',
         'check_in_time',
         'check_out_time',
+        'theme_color',
+        'logo',
     ];
 }
