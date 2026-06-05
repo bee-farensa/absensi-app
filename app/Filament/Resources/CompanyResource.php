@@ -36,7 +36,7 @@ class CompanyResource extends Resource
     {
         return $form
             ->schema([
-                // SECTION 1: BRANDING (Logo & Warna)
+                // SECTION 1: BRANDING (Logo)
                 Forms\Components\Section::make('Branding Aplikasi')
                     ->description('Atur identitas visual perusahaan untuk tampilan aplikasi mobile karyawan.')
                     ->schema([
@@ -45,51 +45,71 @@ class CompanyResource extends Resource
                             ->image()
                             ->directory('company-logos')
                             ->imageEditor()
-                            ->columnSpan(1),
+                            ->columnSpanFull(),
+                    ]),
 
-                        Forms\Components\ColorPicker::make('theme_color')
-                            ->label('Warna Tema Aplikasi')
-                            ->default('#2ecc71') // Default hijau sesuai desainmu
-                            ->required()
-                            ->columnSpan(1),
-                    ])->columns(2),
-
-                // SECTION 2: INFORMASI DASAR
                 Forms\Components\Section::make('Informasi Perusahaan')
-                    ->description('Masukkan detail data kantor pusat.')
+                    ->description('Detail nama perusahaan.')
                     ->schema([
                         Forms\Components\TextInput::make('name')
                             ->label('Nama Perusahaan')
                             ->required()
                             ->maxLength(255),
-                        Forms\Components\TextInput::make('address')
-                            ->label('Alamat Kantor')
-                            ->maxLength(255),
+                    ]),
+
+                Forms\Components\Section::make('Informasi Kantor Pusat')
+                    ->description('Tentukan lokasi dan jam operasional kantor pusat saat membuat perusahaan baru.')
+                    ->visible(fn(string $context): bool => $context === 'create')
+                    ->schema([
+                        Forms\Components\Textarea::make('office_address')
+                            ->label('Alamat Kantor Pusat')
+                            ->required()
+                            ->dehydrated(false)
+                            ->columnSpanFull(),
+                        
+                        Forms\Components\TextInput::make('office_phone_number')
+                            ->label('Nomor Telepon Kantor Pusat')
+                            ->tel()
+                            ->required()
+                            ->maxLength(20)
+                            ->dehydrated(false),
+                        
+                        Forms\Components\TextInput::make('office_latitude')
+                            ->label('Latitude')
+                            ->required()
+                            ->numeric()
+                            ->dehydrated(false)
+                            ->placeholder('-7.123456'),
+                            
+                        Forms\Components\TextInput::make('office_longitude')
+                            ->label('Longitude')
+                            ->required()
+                            ->numeric()
+                            ->dehydrated(false)
+                            ->placeholder('112.123456'),
+                            
+                        Forms\Components\TextInput::make('office_radius')
+                            ->label('Radius Absensi (meter)')
+                            ->required()
+                            ->numeric()
+                            ->dehydrated(false)
+                            ->placeholder('5'),
+
+                        Forms\Components\TimePicker::make('office_check_in_time')
+                            ->label('Jam Masuk')
+                            ->required()
+                            ->default('08:00')
+                            ->seconds(false)
+                            ->dehydrated(false),
+
+                        Forms\Components\TimePicker::make('office_check_out_time')
+                            ->label('Jam Pulang')
+                            ->required()
+                            ->default('17:00')
+                            ->seconds(false)
+                            ->dehydrated(false),
                     ])->columns(2),
 
-                // SECTION 3: KONFIGURASI ABSENSI
-                Forms\Components\Section::make('Konfigurasi Absensi & Lokasi')
-                    ->description('Atur titik koordinat GPS dan jam operasional.')
-                    ->schema([
-                        Forms\Components\TextInput::make('latitude')
-                            ->label('Latitude')
-                            ->numeric()
-                            ->placeholder('-6.xxxx'),
-                        Forms\Components\TextInput::make('longitude')
-                            ->label('Longitude')
-                            ->numeric()
-                            ->placeholder('112.xxxx'),
-                        Forms\Components\TextInput::make('radius')
-                            ->label('Radius (Meter)')
-                            ->numeric()
-                            ->default(100),
-                        Forms\Components\TimePicker::make('check_in_time')
-                            ->label('Jam Masuk')
-                            ->default('08:00'),
-                        Forms\Components\TimePicker::make('check_out_time')
-                            ->label('Jam Pulang')
-                            ->default('17:00'),
-                    ])->columns(3),
             ]);
     }
 
@@ -99,6 +119,7 @@ class CompanyResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('logo')
                     ->label('Logo')
+                    ->disk('public') 
                     ->circular(),
                 
                 Tables\Columns\TextColumn::make('name')
@@ -106,21 +127,10 @@ class CompanyResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\ColorColumn::make('theme_color')
-                    ->label('Warna'),
+                Tables\Columns\TextColumn::make('phone_number')
+                    ->label('Nomor Telepon')
+                    ->searchable(),
 
-                Tables\Columns\TextColumn::make('address')
-                    ->label('Alamat')
-                    ->limit(30)
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('check_in_time')
-                    ->label('Jam Masuk')
-                    ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->format('H:i') : '-'),
-
-                Tables\Columns\TextColumn::make('check_out_time')
-                    ->label('Jam Pulang')
-                    ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->format('H:i') : '-'),
             ])
             ->filters([])
             ->actions([
@@ -128,7 +138,8 @@ class CompanyResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn() => auth()->user()->hasRole('super_admin')),
                 ]),
             ]);
     }

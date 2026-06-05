@@ -16,4 +16,16 @@ class EditCompany extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function afterSave(): void
+    {
+        $company = $this->record;
+
+        // Cari kantor pusat (is_branch = false) dan update nomor telp-nya
+        $company->offices()
+            ->where('is_branch', false)
+            ->update([
+                'phone_number' => $company->phone_number,
+            ]);
+    }
 }

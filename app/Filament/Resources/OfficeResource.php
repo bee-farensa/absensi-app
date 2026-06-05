@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\OfficeResource\Pages;
-use App\Filament\Resources\OfficeResource\RelationManagers;
 use App\Models\Office;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -11,13 +10,14 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Carbon;
 
 class OfficeResource extends Resource
 {
     protected static ?string $model = Office::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon  = 'heroicon-o-building-office';
+    protected static ?string $navigationLabel = 'Manajemen Kantor';
 
     public static function getEloquentQuery(): Builder
     {
@@ -38,7 +38,7 @@ class OfficeResource extends Resource
                     ->schema([
                         \Filament\Forms\Components\Select::make('company_id')
                             ->label('Perusahaan')
-                            ->relationship('company', 'name') // Sesuai Poin 2.E 
+                            ->relationship('company', 'name') 
                             ->required()
                             ->searchable()
                             ->preload(),
@@ -46,7 +46,24 @@ class OfficeResource extends Resource
                         \Filament\Forms\Components\TextInput::make('name')
                             ->label('Nama Cabang/Kantor')
                             ->required()
-                            ->placeholder('Contoh: Kantor Pusat Jakarta'),
+                            ->placeholder('Contoh: Kantor Cabang Jakarta'),
+
+                        \Filament\Forms\Components\Toggle::make('is_branch')
+                            ->label('Sebagai Kantor Cabang?')
+                            ->default(true)
+                            ->required(),
+
+                        \Filament\Forms\Components\Textarea::make('address')
+                            ->label('Alamat Kantor')
+                            ->required()
+                            ->placeholder('Masukkan alamat lengkap kantor...')
+                            ->columnSpanFull(),
+
+                        \Filament\Forms\Components\TextInput::make('phone_number')
+                            ->label('Nomor Telepon Kantor')
+                            ->tel()
+                            ->placeholder('Contoh: 0341-xxxxxxx')
+                            ->maxLength(20),
 
                         \Filament\Forms\Components\Grid::make(3)
                             ->schema([
@@ -65,10 +82,23 @@ class OfficeResource extends Resource
                                 \Filament\Forms\Components\TextInput::make('radius')
                                     ->label('Radius (Meter)')
                                     ->numeric()
-                                    ->default(100) // Jarak standar
+                                    ->default(15) 
                                     ->required()
                                     ->suffix('Meter'),
                             ]),
+
+                        \Filament\Forms\Components\Section::make('Jam Operasional')
+                            ->schema([
+                                \Filament\Forms\Components\TimePicker::make('check_in_time')
+                                    ->label('Jam Masuk')
+                                    ->required()
+                                    ->default('08:00'),
+
+                                \Filament\Forms\Components\TimePicker::make('check_out_time')
+                                    ->label('Jam Pulang')
+                                    ->required()
+                                    ->default('17:00'),
+                            ])->columns(2),
                     ])
             ]);
     }
@@ -78,21 +108,42 @@ class OfficeResource extends Resource
         return $table
             ->columns([
                 \Filament\Tables\Columns\TextColumn::make('name')
-                    ->label('Nama Kantor')
+                    ->label('Informasi Kantor')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->description(function ($record) {
+                        $in = $record->check_in_time ? Carbon::parse($record->check_in_time)->format('H:i') : '-';
+                        $out = $record->check_out_time ? Carbon::parse($record->check_out_time)->format('H:i') : '-';
+                        $telp = $record->phone_number ? " | Telp: {$record->phone_number}" : "";
+                        return "Jam: $in - $out | Alamat: {$record->address}" . $telp;
+                    })
+                    ->wrap(),
+
+                \Filament\Tables\Columns\IconColumn::make('is_branch')
+                    ->label('Tipe')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-map')
+                    ->falseIcon('heroicon-o-home-modern')
+                    ->trueColor('warning')
+                    ->falseColor('success')
+                    ->tooltip(fn($record) => $record->is_branch ? 'Kantor Cabang' : 'Kantor Pusat'),
 
                 \Filament\Tables\Columns\TextColumn::make('company.name')
                     ->label('Perusahaan')
-                    ->sortable(),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
 
                 \Filament\Tables\Columns\TextColumn::make('radius')
                     ->label('Radius')
-                    ->suffix(' m'),
+                    ->suffix(' m')
+                    ->icon('heroicon-m-map-pin')
+                    ->color('success')
+                    ->alignCenter(),
 
-                \Filament\Tables\Columns\TextColumn::make('latitude')
+                \Filament\Tables\Columns\TextColumn::make('location_details')
                     ->label('Koordinat')
-                    ->formatStateUsing(fn($record) => $record->latitude . ', ' . $record->longitude),
+                    ->getStateUsing(fn($record) => "{$record->latitude}, {$record->longitude}")
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('company_id')

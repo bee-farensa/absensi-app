@@ -18,7 +18,9 @@ class User extends Authenticatable implements FilamentUser // TAMBAHKAN 'impleme
         'name',
         'email',
         'password',
+        'image',
         'company_id',
+        'office_id',
         'nik',
         'department_id',
         'position_id',
@@ -35,6 +37,7 @@ class User extends Authenticatable implements FilamentUser // TAMBAHKAN 'impleme
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'face_embedding' => 'array', // Auto encode/decode JSON <-> PHP array
         ];
     }
 
@@ -52,6 +55,11 @@ class User extends Authenticatable implements FilamentUser // TAMBAHKAN 'impleme
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function office()
+    {
+        return $this->belongsTo(Office::class);
     }
 
     public function department()

@@ -39,7 +39,10 @@ class PositionResource extends Resource
                         ->relationship('company', 'name')
                         ->required()
                         ->searchable()
-                        ->preload(),
+                        ->preload()
+                        ->default(auth()->user()->company_id)
+                        ->disabled(!auth()->user()->hasRole('super_admin'))
+                        ->dehydrated(true), // Pastikan nilai tersimpan meski field disabled
                     
                     \Filament\Forms\Components\TextInput::make('name')
                         ->label('Nama Jabatan')
@@ -70,7 +73,10 @@ class PositionResource extends Resource
                 ->searchable(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('company_id')
+                    ->label('Filter Perusahaan')
+                    ->relationship('company', 'name')
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

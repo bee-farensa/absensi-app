@@ -9,13 +9,26 @@ class Company extends Model
     protected $fillable = [
         'name',
         'logo',
-        'address',
-        'latitude',
-        'longitude',
-        'radius',
-        'check_in_time',
-        'check_out_time',
-        'theme_color',
-        'logo',
+        'phone_number',
     ];
+
+    public function offices()
+    {
+        return $this->hasMany(Office::class);
+    }
+
+    public function departments()
+    {
+        return $this->hasMany(Department::class);
+    }
+
+    public function positions()
+    {
+        return $this->hasMany(Position::class);
+    }
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
 }

@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers\Api;
-
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -11,16 +9,15 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        // Validasi input
         $request->validate([
-            'email' => 'required|email',
+            'email'    => 'required|email',
             'password' => 'required',
         ]);
 
-        // Cari user berdasarkan email
-        $user = User::where('email', $request->email)->first();
+        $user = User::with(['company', 'department', 'position'])
+                    ->where('email', $request->email)
+                    ->first();
 
-        // Cek apakah user ada dan password benar
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
@@ -28,23 +25,40 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Hapus token lama jika ada (biar user cuma bisa login di satu perangkat)
+        // Tolak superadmin
+        if ($user->hasRole('super_admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses ke aplikasi.',
+            ], 403);
+        }
+
         $user->tokens()->delete();
 
-        // Buat token baru
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        $userData = [
+            'id'         => $user->id,
+            'name'       => $user->name,
+            'nik'        => $user->nik,
+            'email'      => $user->email,
+            'image_url'  => $user->image ? asset('storage/' . $user->image) : null,
+            'company'    => $user->company?->name,
+            'department' => $user->department?->name,
+            'position'   => $user->position?->name,
+            'role'       => $user->getRoleNames()->first(),
+        ];
 
         return response()->json([
             'success' => true,
             'message' => 'Login berhasil',
-            'token' => $token,
-            'user' => $user
+            'token'   => $token,
+            'user'    => $userData,
         ]);
     }
 
     public function logout(Request $request)
     {
-        // Hapus token yang sedang digunakan
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([

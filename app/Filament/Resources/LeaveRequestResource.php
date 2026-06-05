@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\LeaveRequestResource\Pages;
 use App\Filament\Resources\LeaveRequestResource\RelationManagers;
 use App\Models\LeaveRequest;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -17,7 +18,8 @@ class LeaveRequestResource extends Resource
 {
     protected static ?string $model = LeaveRequest::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $navigationLabel = 'Izin & Cuti';
 
     public static function getEloquentQuery(): Builder
     {
@@ -43,9 +45,17 @@ class LeaveRequestResource extends Resource
                             ->schema([
                                 // Pilih Karyawan
                                 Forms\Components\Select::make('user_id')
-                                    ->relationship('user', 'name')
+                                    ->label('Karyawan')
                                     ->required()
-                                    ->label('Karyawan'),
+                                    ->searchable()
+                                    ->options(function () {
+                                        $query = \App\Models\User::query();
+                                        // Admin PT hanya bisa input untuk karyawan perusahaannya
+                                        if (!auth()->user()->hasRole('super_admin')) {
+                                            $query->where('company_id', auth()->user()->company_id);
+                                        }
+                                        return $query->pluck('name', 'id');
+                                    }),
 
                                 // Pilih Tipe Izin
                                 Forms\Components\Select::make('type')
@@ -66,7 +76,8 @@ class LeaveRequestResource extends Resource
                                 Forms\Components\DatePicker::make('end_date')
                                     ->required()
                                     ->native(false)
-                                    ->label('Tanggal Selesai'),
+                                    ->label('Tanggal Selesai')
+                                    ->after('start_date'),
                             ]),
 
                         // Alasan
@@ -81,7 +92,9 @@ class LeaveRequestResource extends Resource
                             ->label('Bukti/Lampiran (Surat Dokter/Undangan)')
                             ->directory('leaves')
                             ->disk('public')
-                            ->image() // Memastikan yang diupload adalah gambar
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'])
+                            ->helperText('Format: JPG, PNG, atau PDF. Maks 2MB.')
+                            ->maxSize(2048)
                             ->columnSpanFull(),
                     ])
             ]);
@@ -108,7 +121,32 @@ class LeaveRequestResource extends Resource
                     ->disk('public'),
             ])
             ->filters([
-                //
+                // Filter Perusahaan (hanya tampil untuk super_admin)
+                \Filament\Tables\Filters\SelectFilter::make('company')
+                    ->label('Filter Perusahaan')
+                    ->relationship('user.company', 'name')
+                    ->visible(fn() => auth()->user()->hasRole('super_admin')),
+
+                // Filter Karyawan
+                \Filament\Tables\Filters\SelectFilter::make('user_id')
+                    ->label('Filter Karyawan')
+                    ->searchable()
+                    ->options(function () {
+                        $query = \App\Models\User::query();
+                        if (!auth()->user()->hasRole('super_admin')) {
+                            $query->where('company_id', auth()->user()->company_id);
+                        }
+                        return $query->pluck('name', 'id');
+                    }),
+
+                // Filter Status
+                \Filament\Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
+                    ->options([
+                        'Pending'  => 'Pending',
+                        'Approved' => 'Disetujui',
+                        'Rejected' => 'Ditolak',
+                    ]),
             ])
             ->actions([
                 // TOMBOL APPROVE
@@ -118,7 +156,10 @@ class LeaveRequestResource extends Resource
                     ->icon('heroicon-o-check-circle')
                     ->action(fn($record) => $record->update(['status' => 'Approved']))
                     ->requiresConfirmation()
-                    ->visible(fn($record) => $record->status === 'Pending'),
+                    ->visible(fn($record) =>
+                        $record->status === 'Pending' &&
+                        auth()->user()->hasAnyRole(['super_admin', 'admin_pt'])
+                    ),
 
                 // TOMBOL REJECT
                 Tables\Actions\Action::make('reject')
@@ -127,7 +168,10 @@ class LeaveRequestResource extends Resource
                     ->icon('heroicon-o-x-circle')
                     ->action(fn($record) => $record->update(['status' => 'Rejected']))
                     ->requiresConfirmation()
-                    ->visible(fn($record) => $record->status === 'Pending'),
+                    ->visible(fn($record) =>
+                        $record->status === 'Pending' &&
+                        auth()->user()->hasAnyRole(['super_admin', 'admin_pt'])
+                    ),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

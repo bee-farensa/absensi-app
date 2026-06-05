@@ -30,7 +30,14 @@ class AttendancePolicy
      */
     public function view(User $user, Attendance $attendance): bool
     {
-        return $user->can('view_attendance');
+        // Super admin can view all
+        // Admin PT can view attendance in their company
+        // Users can only view their own attendance
+        return $user->can('view_attendance') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $attendance->company_id) ||
+            $user->id === $attendance->user_id
+        );
     }
 
     /**
@@ -53,7 +60,13 @@ class AttendancePolicy
      */
     public function update(User $user, Attendance $attendance): bool
     {
-        return $user->can('update_attendance');
+        // Super admin can update all
+        // Admin PT can update attendance in their company
+        // Regular users cannot update attendance records
+        return $user->can('update_attendance') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $attendance->company_id)
+        );
     }
 
     /**
@@ -65,7 +78,13 @@ class AttendancePolicy
      */
     public function delete(User $user, Attendance $attendance): bool
     {
-        return $user->can('delete_attendance');
+        // Super admin can delete all
+        // Admin PT can delete attendance in their company
+        // Users cannot delete their own attendance
+        return $user->can('delete_attendance') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $attendance->company_id)
+        );
     }
 
     /**
@@ -88,7 +107,8 @@ class AttendancePolicy
      */
     public function forceDelete(User $user, Attendance $attendance): bool
     {
-        return $user->can('force_delete_attendance');
+        // Only super admin can force delete
+        return $user->can('force_delete_attendance') && $user->hasRole('super_admin');
     }
 
     /**
@@ -99,7 +119,7 @@ class AttendancePolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_attendance');
+        return $user->can('force_delete_any_attendance') && $user->hasRole('super_admin');
     }
 
     /**
@@ -111,7 +131,12 @@ class AttendancePolicy
      */
     public function restore(User $user, Attendance $attendance): bool
     {
-        return $user->can('restore_attendance');
+        // Super admin can restore all
+        // Admin PT can restore attendance in their company
+        return $user->can('restore_attendance') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $attendance->company_id)
+        );
     }
 
     /**
@@ -134,7 +159,12 @@ class AttendancePolicy
      */
     public function replicate(User $user, Attendance $attendance): bool
     {
-        return $user->can('replicate_attendance');
+        // Super admin can replicate all
+        // Admin PT can replicate attendance in their company
+        return $user->can('replicate_attendance') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $attendance->company_id)
+        );
     }
 
     /**

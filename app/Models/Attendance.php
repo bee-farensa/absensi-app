@@ -10,6 +10,7 @@ class Attendance extends Model
     protected $fillable = [
         'user_id',
         'office_id',
+        'company_id',
         'date',
         'time_in',
         'time_out',
@@ -20,6 +21,7 @@ class Attendance extends Model
         'pic_in',
         'pic_out',
         'is_late',
+        'face_verified',
     ];
 
     public function user(): BelongsTo
@@ -30,5 +32,34 @@ class Attendance extends Model
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class);
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Ensure company_id matches user's company_id
+        static::creating(function ($model) {
+            if ($model->user_id) {
+                $user = User::find($model->user_id);
+                if ($user && $model->company_id !== $user->company_id) {
+                    $model->company_id = $user->company_id;
+                }
+            }
+        });
+
+        static::updating(function ($model) {
+            if ($model->user_id) {
+                $user = User::find($model->user_id);
+                if ($user && $model->company_id !== $user->company_id) {
+                    $model->company_id = $user->company_id;
+                }
+            }
+        });
     }
 }

@@ -19,7 +19,8 @@ class AttendanceResource extends Resource
 {
     protected static ?string $model = Attendance::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-clock';
+    protected static ?string $navigationLabel = 'Data Absensi';
 
     public static function getEloquentQuery(): Builder
     {
@@ -66,16 +67,20 @@ class AttendanceResource extends Resource
                         'Terlambat' => 'danger',
                         default => 'gray',
                     }),
-                // Menampilkan Foto
                 Tables\Columns\ImageColumn::make('pic_in')
                     ->label('Foto Masuk')
                     ->disk('public')
-                    ->visibility('public') // Cukup tentukan disk-nya saja
+                    ->visibility('public')
+                    ->circular(),
+
+                Tables\Columns\ImageColumn::make('pic_out')
+                    ->label('Foto Pulang')
+                    ->disk('public')
+                    ->visibility('public')
                     ->circular(),
             ])
             ->filters([
-                // 1. Filter Tanggal (Bisa pilih rentang waktu)
-                Filter::make('created_at')
+                Filter::make('date_range')
                     ->form([
                         DatePicker::make('dari_tanggal')->label('Dari Tanggal'),
                         DatePicker::make('sampai_tanggal')->label('Sampai Tanggal'),
@@ -84,11 +89,11 @@ class AttendanceResource extends Resource
                         return $query
                             ->when(
                                 $data['dari_tanggal'],
-                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '>=', $date),
                             )
                             ->when(
                                 $data['sampai_tanggal'],
-                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '<=', $date),
                             );
                     })->indicateUsing(function (array $data): array {
                         $indicators = [];
@@ -101,7 +106,7 @@ class AttendanceResource extends Resource
                         return $indicators;
                     }),
 
-                // 2. Filter Nama Karyawan (Hanya yang satu PT dengan Admin)
+                //Filter Nama Karyawan (Hanya yang satu PT dengan Admin)
                 SelectFilter::make('user_id')
                     ->label('Pilih Karyawan')
                     ->options(function () {
@@ -115,10 +120,75 @@ class AttendanceResource extends Resource
 
                         return $query->pluck('name', 'id');
                     })
-                    ->searchable()
+                    ->searchable(),
+
+                //Filter PT / Perusahaan (Hanya untuk Super Admin)
+                SelectFilter::make('company_id')
+                    ->label('PT / Perusahaan')
+                    ->options(\App\Models\Company::pluck('name', 'id'))
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'],
+                            fn(Builder $query, $value): Builder => $query->whereHas('user', function ($query) use ($value) {
+                                $query->where('company_id', $value);
+                            })
+                        );
+                    })
+                    ->visible(fn() => auth()->user()->hasRole('super_admin'))
+                    ->searchable(),
+
+                //Filter Departemen
+                SelectFilter::make('department_id')
+                    ->label('Departemen')
+                    ->options(function () {
+                        $user = auth()->user();
+                        $query = \App\Models\Department::query();
+
+                        // Jika bukan super_admin, hanya tampilkan departemen di PT yang sama
+                        if (!$user->hasRole('super_admin')) {
+                            $query->where('company_id', $user->company_id);
+                        }
+
+                        return $query->pluck('name', 'id');
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        $user = auth()->user();
+                        return $query->when(
+                            $data['value'],
+                            fn(Builder $query, $value): Builder => $query->whereHas('user', function ($q) use ($value, $user) {
+                                $q->where('department_id', $value);
+                                // Extra security: jika bukan super_admin, pastikan department dari company yang sama
+                                if (!$user->hasRole('super_admin')) {
+                                    $q->where('company_id', $user->company_id);
+                                }
+                            })
+                        );
+                    })
+                    ->searchable(),
+
+                //Filter Kantor / Cabang
+                SelectFilter::make('office_id')
+                    ->label('Kantor / Cabang')
+                    ->options(function () {
+                        $user = auth()->user();
+                        $query = \App\Models\Office::query();
+
+                        if (!$user->hasRole('super_admin')) {
+                            $query->where('company_id', $user->company_id);
+                        }
+
+                        return $query->pluck('name', 'id');
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'],
+                            fn(Builder $query, $value): Builder => $query->where('office_id', $value)
+                        );
+                    })
+                    ->searchable(),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                //
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -138,8 +208,6 @@ class AttendanceResource extends Resource
     {
         return [
             'index' => Pages\ListAttendances::route('/'),
-            'create' => Pages\CreateAttendance::route('/create'),
-            'edit' => Pages\EditAttendance::route('/{record}/edit'),
         ];
     }
 }

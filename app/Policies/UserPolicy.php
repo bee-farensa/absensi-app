@@ -25,11 +25,18 @@ class UserPolicy
      * Determine whether the user can view the model.
      *
      * @param  \App\Models\User  $user
+     * @param  \App\Models\User  $targetUser
      * @return bool
      */
-    public function view(User $user): bool
+    public function view(User $user, User $targetUser): bool
     {
-        return $user->can('view_user');
+        // Super admin and admin_pt can view all users in their scope
+        // Users can view their own profile
+        return $user->can('view_user') && (
+            $user->id === $targetUser->id ||
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $targetUser->company_id)
+        );
     }
 
     /**
@@ -47,22 +54,36 @@ class UserPolicy
      * Determine whether the user can update the model.
      *
      * @param  \App\Models\User  $user
+     * @param  \App\Models\User  $targetUser
      * @return bool
      */
-    public function update(User $user): bool
+    public function update(User $user, User $targetUser): bool
     {
-        return $user->can('update_user');
+        // Super admin can update all users
+        // Admin PT can update users in their company
+        // Users cannot update other users
+        return $user->can('update_user') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $targetUser->company_id)
+        );
     }
 
     /**
      * Determine whether the user can delete the model.
      *
      * @param  \App\Models\User  $user
+     * @param  \App\Models\User  $targetUser
      * @return bool
      */
-    public function delete(User $user): bool
+    public function delete(User $user, User $targetUser): bool
     {
-        return $user->can('delete_user');
+        // Super admin can delete all users except themselves
+        // Admin PT can delete users in their company except themselves
+        return $user->can('delete_user') && 
+               $user->id !== $targetUser->id && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $targetUser->company_id)
+        );
     }
 
     /**
@@ -80,11 +101,15 @@ class UserPolicy
      * Determine whether the user can permanently delete.
      *
      * @param  \App\Models\User  $user
+     * @param  \App\Models\User  $targetUser
      * @return bool
      */
-    public function forceDelete(User $user): bool
+    public function forceDelete(User $user, User $targetUser): bool
     {
-        return $user->can('force_delete_user');
+        // Only super admin can force delete, and not themselves
+        return $user->can('force_delete_user') && 
+               $user->id !== $targetUser->id &&
+               $user->hasRole('super_admin');
     }
 
     /**
@@ -102,11 +127,17 @@ class UserPolicy
      * Determine whether the user can restore.
      *
      * @param  \App\Models\User  $user
+     * @param  \App\Models\User  $targetUser
      * @return bool
      */
-    public function restore(User $user): bool
+    public function restore(User $user, User $targetUser): bool
     {
-        return $user->can('restore_user');
+        // Super admin can restore all
+        // Admin PT can restore users in their company
+        return $user->can('restore_user') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $targetUser->company_id)
+        );
     }
 
     /**
@@ -124,11 +155,17 @@ class UserPolicy
      * Determine whether the user can bulk restore.
      *
      * @param  \App\Models\User  $user
+     * @param  \App\Models\User  $targetUser
      * @return bool
      */
-    public function replicate(User $user): bool
+    public function replicate(User $user, User $targetUser): bool
     {
-        return $user->can('replicate_user');
+        // Super admin can replicate all
+        // Admin PT can replicate users in their company
+        return $user->can('replicate_user') && (
+            $user->hasRole('super_admin') ||
+            ($user->hasRole('admin_pt') && $user->company_id === $targetUser->company_id)
+        );
     }
 
     /**

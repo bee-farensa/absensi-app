@@ -8,15 +8,38 @@ use Illuminate\Http\Request;
 
 class BrandingController extends Controller
 {
-    public function index($nik)
+    public function index(Request $request, $email)
     {
-        // Cari user berdasarkan NIK beserta data perusahaannya
-        $user = User::with('company')->where('nik', $nik)->first();
+        // Validate email format to prevent SQL injection
+        $validated = validator(['email' => $email], [
+            'email' => 'required|email|max:255',
+        ]);
+
+        if ($validated->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Format email tidak valid',
+            ], 422);
+        }
+
+        // Only allow user to query their own email for security
+        $authenticatedUser = $request->user();
+        if ($authenticatedUser && $authenticatedUser->email !== $email) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak. Anda hanya dapat mengakses branding email Anda sendiri.',
+            ], 403);
+        }
+
+        // Cari user berdasarkan Email
+        $user = User::with('company')
+            ->where('email', $email)
+            ->first();
 
         if (!$user) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'NIK tidak terdaftar'
+                'success' => false,
+                'message' => 'Email tidak terdaftar',
             ], 404);
         }
 
@@ -24,19 +47,18 @@ class BrandingController extends Controller
 
         if (!$company) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Karyawan belum terhubung ke perusahaan'
+                'success' => false,
+                'message' => 'Karyawan belum terhubung ke perusahaan',
             ], 404);
         }
 
         return response()->json([
-            'status' => 'success',
+            'success' => true,
             'data' => [
                 'company_name' => $company->name,
-                'theme_color'  => $company->theme_color,
-                // Kita buat URL lengkap agar Flutter tinggal pakai
+                // Buat URL lengkap agar Flutter tinggal pakai
                 'logo_url'     => $company->logo ? asset('storage/' . $company->logo) : null,
-            ]
+            ],
         ]);
     }
 }
