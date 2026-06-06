@@ -19,6 +19,7 @@
       "ctype"
     ]
   },
+  "node": false,
   "build": {
     "commands": [
       "composer install --no-dev --optimize-autoloader",
