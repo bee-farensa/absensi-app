@@ -7,6 +7,10 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "ext-intl": "*",
+        "ext-gd": "*",
+        "ext-zip": "*",
+        "ext-bcmath": "*",
         "barryvdh/laravel-dompdf": "^3.1",
         "bezhansalleh/filament-shield": "3.2",
         "dedoc/scramble": "^0.13.22",
