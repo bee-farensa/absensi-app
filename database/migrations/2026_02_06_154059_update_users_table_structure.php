@@ -22,7 +22,7 @@ return new class extends Migration
         $table->enum('role', ['superadmin', 'admin_pt', 'employee'])->default('employee');
         
         // Untuk simpan data wajah nantinya (Bulan 2-4) [cite: 19, 38]
-        $table->text('face_embedding')->nullable(); 
+        $table->jsonb('face_embedding')->nullable(); 
         });
     }
 
