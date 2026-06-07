@@ -11,6 +11,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class CompanyResource extends Resource
 {
@@ -43,11 +45,15 @@ class CompanyResource extends Resource
                         Forms\Components\FileUpload::make('logo')
                             ->label('Logo Perusahaan')
                             ->image()
-                            ->disk('cloudinary')
-                            ->imageEditor()
-                            ->columnSpanFull(),
-                    ]),
+                            ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
+                                return (string) Str::pipe($file->getClientOriginalName(), [
+                                    fn ($name) => Str::slug(pathinfo($name, PATHINFO_FILENAME)),
+                                    fn ($slug) => $slug . '-' . time() . '.' . $file->getClientOriginalExtension(),
+                                ]);
+                            }),
+                    ]), // <-- Tadi kurang penutup kurung siku bagian ini
 
+                // SECTION 2: INFORMASI PERUSAHAAN
                 Forms\Components\Section::make('Informasi Perusahaan')
                     ->description('Detail nama perusahaan.')
                     ->schema([
@@ -57,6 +63,7 @@ class CompanyResource extends Resource
                             ->maxLength(255),
                     ]),
 
+                // SECTION 3: KANTOR PUSAT
                 Forms\Components\Section::make('Informasi Kantor Pusat')
                     ->description('Tentukan lokasi dan jam operasional kantor pusat saat membuat perusahaan baru.')
                     ->visible(fn(string $context): bool => $context === 'create')
@@ -109,7 +116,6 @@ class CompanyResource extends Resource
                             ->seconds(false)
                             ->dehydrated(false),
                     ])->columns(2),
-
             ]);
     }
 
@@ -130,7 +136,6 @@ class CompanyResource extends Resource
                 Tables\Columns\TextColumn::make('phone_number')
                     ->label('Nomor Telepon')
                     ->searchable(),
-
             ])
             ->filters([])
             ->actions([
