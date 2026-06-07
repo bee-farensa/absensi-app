@@ -118,7 +118,7 @@ class LeaveRequestResource extends Resource
                     }),
                 Tables\Columns\ImageColumn::make('attachment')
                     ->label('Bukti')
-                    ->disk('cloudinary'),
+                    ->disk('public'),
             ])
             ->filters([
                 // Filter Perusahaan (hanya tampil untuk super_admin)

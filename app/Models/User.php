@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
-use Filament\Models\Contracts\FilamentUser; // WAJIB TAMBAH INI
-use Filament\Panel; // WAJIB TAMBAH INI
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Illuminate\Support\Facades\Storage;
 
-class User extends Authenticatable implements FilamentUser // TAMBAHKAN 'implements FilamentUser'
+class User extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable, HasApiTokens, HasRoles;
 
@@ -70,5 +72,18 @@ class User extends Authenticatable implements FilamentUser // TAMBAHKAN 'impleme
     public function position()
     {
         return $this->belongsTo(Position::class);
+    }
+    public function setImageAttribute($value)
+    {
+        if ($value && !str_starts_with((string) $value, 'http')) {
+            $path = storage_path('app/public/' . $value);
+            if (file_exists($path)) {
+                $uploaded = Cloudinary::upload($path, ['folder' => 'profile-photos']);
+                $this->attributes['image'] = $uploaded->getSecurePath();
+                Storage::disk('public')->delete($value);
+                return;
+            }
+        }
+        $this->attributes['image'] = $value;
     }
 }

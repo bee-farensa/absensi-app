@@ -43,7 +43,7 @@ class UserResource extends Resource
                         Forms\Components\FileUpload::make('image')
                             ->label('Foto Profil')
                             ->image()
-                            ->disk('cloudinary')
+                            ->disk('public')
                             ->avatar()
                             ->imageEditor(),
 
