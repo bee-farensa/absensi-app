@@ -47,8 +47,9 @@ class AttendanceController extends Controller
                     'is_late'       => (bool) $item->is_late,
                     'face_verified' => (bool) $item->face_verified,
                     'status'        => $item->time_out ? 'Lengkap' : 'Belum Checkout',
-                    'pic_in'        => $item->pic_in ?? null,
-                    'pic_out'       => $item->pic_out ?? null,
+                    // generate full URL Cloudinary untuk mobile jika path disimpan secara relatif
+                    'pic_in'        => $item->pic_in ? Storage::disk('cloudinary')->url($item->pic_in) : null,
+                    'pic_out'       => $item->pic_out ? Storage::disk('cloudinary')->url($item->pic_out) : null,
                 ];
             });
 
@@ -144,13 +145,17 @@ class AttendanceController extends Controller
                     return response()->json(['message' => 'Anda sudah absen pulang hari ini'], 422);
                 }
 
-                // 4. Simpan foto SETELAH validasi lolos
-                $imageName = time() . '_' . $user->id . '_' . uniqid() . '.png';
-                $request->file('image')->storeAs('attendances', $imageName, 'public');
-                $uploadedImagePath = 'attendances/' . $imageName;
-
                 if (!$attendance) {
                     // ── CHECK-IN ──────────────────────────────────────────────────
+                    
+                    // Upload foto ke Cloudinary disk dengan folder penamaan sesuai Filament resource kemarin
+                    $uploadedFile = $request->file('image');
+                    $folder = 'absensi/foto_masuk';
+                    $filename = 'in-' . time() . '-' . \Illuminate\Support\Str::random(5);
+                    
+                    $path = Storage::disk('cloudinary')->putFileAs($folder, $uploadedFile, $filename . '.' . $uploadedFile->getClientOriginalExtension());
+                    $uploadedImagePath = $path;
+
                     $startTime = $office->check_in_time;
 
                     // Toleransi keterlambatan 10 menit
@@ -186,12 +191,9 @@ class AttendanceController extends Controller
 
                 } else {
                     // ── CHECK-OUT ─────────────────────────────────────────────────
-                    // Validasi bahwa user tidak bisa check-in lagi jika sudah check-in hari ini
                     if ($attendance->time_in && !$attendance->time_out) {
                         // Ini adalah check-out, lanjutkan
                     } else {
-                        // Sudah ada record dengan time_in dan time_out, tidak bisa check-in lagi
-                        Storage::disk('public')->delete($uploadedImagePath);
                         return response()->json([
                             'success' => false,
                             'message' => 'Anda sudah melakukan check-in dan check-out hari ini.',
@@ -199,12 +201,6 @@ class AttendanceController extends Controller
                     }
 
                     $endTime = $office->check_out_time;
-
-                    // More flexible checkout validation:
-                    // Allow checkout if:
-                    // 1. No official check_out_time is set, OR
-                    // 2. Current time >= official check_out_time, OR
-                    // 3. User has worked minimum 8 hours since check-in
                     $canCheckout = true;
                     $checkoutMessage = '';
 
@@ -214,23 +210,27 @@ class AttendanceController extends Controller
                         $checkInTime = Carbon::parse($attendance->time_in);
                         $workedHours = $checkInTime->diffInHours($currentTime);
 
-                        // Allow checkout if worked at least 8 hours OR it's past official check-out time
                         if ($currentTime->lt($officialCheckOutTime) && $workedHours < 8) {
                             $remaining = $currentTime->diff($officialCheckOutTime)->format('%H jam %I menit');
                             $canCheckout = false;
-                            $checkoutMessage = "Belum waktunya absen pulang. Tunggu {$remaining} lagi atau bekerja minimal 8 jam.";
+                            $checkoutMessage = "Belum waktunya absen pulang. Tunggu {$remaining} lagi .";
                         }
                     }
 
                     if (!$canCheckout) {
-                        // Hapus foto yang sudah terlanjur disimpan
-                        Storage::disk('public')->delete($uploadedImagePath);
-
                         return response()->json([
                             'success' => false,
                             'message' => $checkoutMessage,
                         ], 422);
                     }
+
+                    // Upload foto pulang ke Cloudinary disk
+                    $uploadedFile = $request->file('image');
+                    $folder = 'absensi/foto_pulang';
+                    $filename = 'out-' . time() . '-' . \Illuminate\Support\Str::random(5);
+                    
+                    $path = Storage::disk('cloudinary')->putFileAs($folder, $uploadedFile, $filename . '.' . $uploadedFile->getClientOriginalExtension());
+                    $uploadedImagePath = $path;
 
                     $attendance->update([
                         'time_out'      => $time,
@@ -253,9 +253,9 @@ class AttendanceController extends Controller
                 }
             });
         } catch (\Exception $e) {
-            // Cleanup photo on ANY error
+            // Bersihkan file di Cloudinary jika transaction gagal di tengah jalan
             if ($uploadedImagePath) {
-                Storage::disk('public')->delete($uploadedImagePath);
+                Storage::disk('cloudinary')->delete($uploadedImagePath);
             }
             \Log::error('Attendance store error', ['error' => $e->getMessage(), 'user_id' => $user->id]);
             

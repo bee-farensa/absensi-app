@@ -5,7 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AttendanceResource\Pages;
 // use App\Filament\Resources\AttendanceResource\RelationManagers;
 use App\Models\Attendance;
-// use Filament\Forms;
+use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Forms\Components\DatePicker;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class AttendanceResource extends Resource
 {
@@ -34,11 +36,33 @@ class AttendanceResource extends Resource
 
         return $query;
     }
+    
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                //
+                Forms\Components\Section::make('Dokumentasi Absensi')
+                    ->schema([
+                        Forms\Components\FileUpload::make('pic_in')
+                            ->label('Foto Masuk')
+                            ->directory('absensi/foto_masuk')
+                            ->disk('cloudinary') // <-- Set ke Cloudinary
+                            ->image()
+                            ->maxSize(2048)
+                            ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
+                                return 'in-' . time() . '-' . Str::random(5) . '.' . $file->getClientOriginalExtension();
+                            }),
+
+                        Forms\Components\FileUpload::make('pic_out')
+                            ->label('Foto Pulang')
+                            ->directory('absensi/foto_pulang')
+                            ->disk('cloudinary') // <-- Set ke Cloudinary
+                            ->image()
+                            ->maxSize(2048)
+                            ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
+                                return 'out-' . time() . '-' . Str::random(5) . '.' . $file->getClientOriginalExtension();
+                            }),
+                    ])->columns(2)
             ]);
     }
 
@@ -67,16 +91,16 @@ class AttendanceResource extends Resource
                         'Terlambat' => 'danger',
                         default => 'gray',
                     }),
+                
+                // PENGATURAN DISK CLOUDINARY UNTUK FOTO ABSEN
                 Tables\Columns\ImageColumn::make('pic_in')
                     ->label('Foto Masuk')
-                    ->disk('public')
-                    ->visibility('public')
+                    ->disk('cloudinary') // <-- Diubah dari 'public' ke 'cloudinary'
                     ->circular(),
 
                 Tables\Columns\ImageColumn::make('pic_out')
                     ->label('Foto Pulang')
-                    ->disk('public')
-                    ->visibility('public')
+                    ->disk('cloudinary') // <-- Diubah dari 'public' ke 'cloudinary'
                     ->circular(),
             ])
             ->filters([
@@ -188,7 +212,7 @@ class AttendanceResource extends Resource
                     ->searchable(),
             ])
             ->actions([
-                //
+                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

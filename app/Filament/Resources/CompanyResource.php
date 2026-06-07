@@ -45,6 +45,7 @@ class CompanyResource extends Resource
                         Forms\Components\FileUpload::make('logo')
                             ->label('Logo Perusahaan')
                             ->image()
+                            ->directory('absensi/logo_perusahaan')
                             ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
                                 // Mengambil nama asli file tanpa ekstensi
                                 $filename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
