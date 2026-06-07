@@ -5,32 +5,23 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class ProfileController extends Controller
 {
-    /**
-     * Tampilkan foto profil user yang sedang login.
-     * GET /api/profile/photo
-     */
     public function show(Request $request)
     {
         $user = $request->user();
 
         return response()->json([
-            'success'   => true,
-            'message'   => 'Foto profil berhasil diambil',
-            'data'      => [
-                'image_url' => $user->image
-                    ? asset('storage/' . $user->image)
-                    : null,
+            'success' => true,
+            'message' => 'Foto profil berhasil diambil',
+            'data' => [
+                'image_url' => $user->image ?? null,
             ],
         ]);
     }
 
-    /**
-     * Upload atau ganti foto profil.
-     * PUT /api/profile/photo
-     */
     public function update(Request $request)
     {
         $request->validate([
@@ -41,27 +32,26 @@ class ProfileController extends Controller
 
         // Hapus foto lama jika ada
         if ($user->image) {
-            Storage::disk('public')->delete($user->image);
+            $publicId = pathinfo($user->image, PATHINFO_FILENAME);
+            Cloudinary::destroy('profile-photos/' . $publicId);
         }
-
+        $uploaded = Cloudinary::upload($request->file('image')->getRealPath(), [
+            'folder' => 'profile-photos'
+        ]);
         // Simpan foto baru
-        $path = $request->file('image')->store('profile-photos', 'public');
-        $user->image = $path;
+        // $path = $request->file('image')->store('profile-photos', 'public');
+        $user->image = $uploaded->getSecurePath();
         $user->save();
 
         return response()->json([
-            'success'   => true,
-            'message'   => 'Foto profil berhasil diperbarui',
-            'data'      => [
-                'image_url' => asset('storage/' . $user->image),
+            'success' => true,
+            'message' => 'Foto profil berhasil diperbarui',
+            'data' => [
+                'image_url' => $user->image,
             ],
         ]);
     }
 
-    /**
-     * Hapus foto profil (set ke null).
-     * DELETE /api/profile/photo
-     */
     public function destroy(Request $request)
     {
         $user = $request->user();
@@ -73,8 +63,10 @@ class ProfileController extends Controller
             ], 404);
         }
 
+        $publicId = pathinfo($user->image, PATHINFO_FILENAME);
+        Cloudinary::destroy('profile-photos/' . $publicId);
         // Hapus file dari storage
-        Storage::disk('public')->delete($user->image);
+        // Storage::disk('public')->delete($user->image);
 
         // Set kolom image ke null
         $user->image = null;
@@ -83,16 +75,12 @@ class ProfileController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Foto profil berhasil dihapus',
-            'data'    => [
+            'data' => [
                 'image_url' => null,
             ],
         ]);
     }
 
-    /**
-     * Download foto profil dengan authorization check.
-     * GET /api/profile/photo/download/{filename}
-     */
     public function downloadPhoto(Request $request, $filename)
     {
         $user = $request->user();

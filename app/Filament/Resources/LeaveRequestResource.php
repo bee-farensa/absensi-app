@@ -91,7 +91,7 @@ class LeaveRequestResource extends Resource
                         Forms\Components\FileUpload::make('attachment')
                             ->label('Bukti/Lampiran (Surat Dokter/Undangan)')
                             ->directory('leaves')
-                            ->disk('public')
+                            ->disk('cloudinary')
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'])
                             ->helperText('Format: JPG, PNG, atau PDF. Maks 2MB.')
                             ->maxSize(2048)
@@ -118,7 +118,7 @@ class LeaveRequestResource extends Resource
                     }),
                 Tables\Columns\ImageColumn::make('attachment')
                     ->label('Bukti')
-                    ->disk('public'),
+                    ->disk('cloudinary'),
             ])
             ->filters([
                 // Filter Perusahaan (hanya tampil untuk super_admin)

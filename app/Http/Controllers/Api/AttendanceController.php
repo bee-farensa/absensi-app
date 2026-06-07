@@ -9,14 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class AttendanceController extends Controller
 {
-    /**
-     * GET /api/attendance
-     * Riwayat absensi karyawan yang sedang login.
-     * Query params: ?month=4&year=2026 (opsional, default bulan ini)
-     */
     public function index(Request $request)
     {
         $user = $request->user();
@@ -51,8 +47,8 @@ class AttendanceController extends Controller
                     'is_late'       => (bool) $item->is_late,
                     'face_verified' => (bool) $item->face_verified,
                     'status'        => $item->time_out ? 'Lengkap' : 'Belum Checkout',
-                    'pic_in'        => $item->pic_in ? asset('storage/' . $item->pic_in) : null,
-                    'pic_out'       => $item->pic_out ? asset('storage/' . $item->pic_out) : null,
+                    'pic_in'        => $item->pic_in ?? null,
+                    'pic_out'       => $item->pic_out ?? null,
                 ];
             });
 
@@ -94,7 +90,7 @@ class AttendanceController extends Controller
                 \Log::warning('No offices found for user', ['user_id' => $user->id, 'company_id' => $user->company_id]);
                 return response()->json([
                     'success' => false,
-                    'message' => 'Kantor tidak ditemukan. Hubungi administrator untuk setup kantor.',
+                    'message' => 'Kantor tidak ditemukan!',
                 ], 404);
             }
 
