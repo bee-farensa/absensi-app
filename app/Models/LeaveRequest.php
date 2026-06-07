@@ -17,16 +17,6 @@ class LeaveRequest extends Model
         'attachment',
         'status'
     ];
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
-}
-class LeaveRequest extends Model
-{
-    protected $fillable = ['user_id', 'start_date', 'end_date', 'type', 'reason', 'attachment', 'status'];
-
     public function setAttachmentAttribute($value)
     {
         if ($value && !str_starts_with((string) $value, 'http')) {
