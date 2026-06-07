@@ -43,7 +43,7 @@ class CompanyResource extends Resource
                         Forms\Components\FileUpload::make('logo')
                             ->label('Logo Perusahaan')
                             ->image()
-                            ->disk('public')
+                            ->disk('cloudinary')
                             ->imageEditor()
                             ->columnSpanFull(),
                     ]),

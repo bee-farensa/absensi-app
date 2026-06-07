@@ -91,7 +91,7 @@ class LeaveRequestResource extends Resource
                         Forms\Components\FileUpload::make('attachment')
                             ->label('Bukti/Lampiran (Surat Dokter/Undangan)')
                             ->directory('leaves')
-                            ->disk('cloudinary')
+                            ->disk('public')
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'])
                             ->helperText('Format: JPG, PNG, atau PDF. Maks 2MB.')
                             ->maxSize(2048)
