@@ -39,7 +39,7 @@ return [
         ],
         'cloudinary' => [
             'driver' => 'cloudinary',
-            'url' => env('cloudinary://467896766694741:re_TXZFJYWxOA6ZP-6MOiDB8jN8@dwt8yrkfi'),
+            'url' => env('CLOUDINARY_URL'),
 
         ],
 
