@@ -46,10 +46,14 @@ class CompanyResource extends Resource
                             ->label('Logo Perusahaan')
                             ->image()
                             ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
-                                return (string) Str::pipe($file->getClientOriginalName(), [
-                                    fn ($name) => Str::slug(pathinfo($name, PATHINFO_FILENAME)),
-                                    fn ($slug) => $slug . '-' . time() . '.' . $file->getClientOriginalExtension(),
-                                ]);
+                                // Mengambil nama asli file tanpa ekstensi
+                                $filename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
+                                // Mengubah nama file jadi format slug (bersih dari spasi/karakter aneh)
+                                $slugName = Str::slug($filename);
+
+                                // Menggabungkan slug nama + timestamp unik + ekstensi asli file
+                                return $slugName . '-' . time() . '.' . $file->getClientOriginalExtension();
                             }),
                     ]), // <-- Tadi kurang penutup kurung siku bagian ini
 
@@ -73,28 +77,28 @@ class CompanyResource extends Resource
                             ->required()
                             ->dehydrated(false)
                             ->columnSpanFull(),
-                        
+
                         Forms\Components\TextInput::make('office_phone_number')
                             ->label('Nomor Telepon Kantor Pusat')
                             ->tel()
                             ->required()
                             ->maxLength(20)
                             ->dehydrated(false),
-                        
+
                         Forms\Components\TextInput::make('office_latitude')
                             ->label('Latitude')
                             ->required()
                             ->numeric()
                             ->dehydrated(false)
                             ->placeholder('-7.123456'),
-                            
+
                         Forms\Components\TextInput::make('office_longitude')
                             ->label('Longitude')
                             ->required()
                             ->numeric()
                             ->dehydrated(false)
                             ->placeholder('112.123456'),
-                            
+
                         Forms\Components\TextInput::make('office_radius')
                             ->label('Radius Absensi (meter)')
                             ->required()
@@ -125,9 +129,9 @@ class CompanyResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('logo')
                     ->label('Logo')
-                    ->disk('cloudinary') 
+                    ->disk('cloudinary')
                     ->circular(),
-                
+
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama PT')
                     ->searchable()
