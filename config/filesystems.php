@@ -39,9 +39,6 @@ return [
         ],
         'cloudinary' => [
             'driver' => 'cloudinary',
-            'cloud' => env('dwt8yrkfi'),
-            'api_key' => env('467896766694741'),
-            'api_secret' => env('re_TXZFJYWxOA6ZP-6MOiDB8jN8'),
             'url' => env('cloudinary://467896766694741:re_TXZFJYWxOA6ZP-6MOiDB8jN8@dwt8yrkfi'),
 
         ],
