@@ -1,18 +1,13 @@
 <?php
-
 namespace App\Http\Controllers\Api;
-
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class ProfileController extends Controller
 {
     public function show(Request $request)
     {
         $user = $request->user();
-
         return response()->json([
             'success' => true,
             'message' => 'Foto profil berhasil diambil',
@@ -30,17 +25,20 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
-        // Hapus foto lama jika ada
-        if ($user->image) {
-            $publicId = pathinfo($user->image, PATHINFO_FILENAME);
-            Cloudinary::destroy('profile-photos/' . $publicId);
-        }
-        $uploaded = Cloudinary::upload($request->file('image')->getRealPath(), [
-            'folder' => 'profile-photos'
+        $cloudinary = new \Cloudinary\Cloudinary([
+            'cloud' => [
+                'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                'api_key' => env('CLOUDINARY_API_KEY'),
+                'api_secret' => env('CLOUDINARY_API_SECRET'),
+            ],
         ]);
-        // Simpan foto baru
-        // $path = $request->file('image')->store('profile-photos', 'public');
-        $user->image = $uploaded->getSecurePath();
+
+        $result = $cloudinary->uploadApi()->upload(
+            $request->file('image')->getRealPath(),
+            ['folder' => 'profile-photos']
+        );
+
+        $user->image = $result['secure_url'];
         $user->save();
 
         return response()->json([
@@ -63,12 +61,6 @@ class ProfileController extends Controller
             ], 404);
         }
 
-        $publicId = pathinfo($user->image, PATHINFO_FILENAME);
-        Cloudinary::destroy('profile-photos/' . $publicId);
-        // Hapus file dari storage
-        // Storage::disk('public')->delete($user->image);
-
-        // Set kolom image ke null
         $user->image = null;
         $user->save();
 
@@ -85,23 +77,13 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        // Validasi bahwa file milik user yang sedang login
-        if (!$user->image || basename($user->image) !== $filename) {
+        if (!$user->image) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses ditolak. File tidak ditemukan atau bukan milik Anda.',
             ], 403);
         }
 
-        $path = Storage::disk('public')->path($user->image);
-
-        if (!file_exists($path)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'File tidak ditemukan.',
-            ], 404);
-        }
-
-        return response()->download($path);
+        return response()->redirectTo($user->image);
     }
 }
