@@ -1,10 +1,6 @@
 <?php
-
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Model;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
-use Illuminate\Support\Facades\Storage;
 
 class LeaveRequest extends Model
 {
@@ -17,14 +13,22 @@ class LeaveRequest extends Model
         'attachment',
         'status'
     ];
+
     public function setAttachmentAttribute($value)
     {
         if ($value && !str_starts_with((string) $value, 'http')) {
             $path = storage_path('app/public/' . $value);
             if (file_exists($path)) {
-                $uploaded = Cloudinary::upload($path, ['folder' => 'leaves']);
-                $this->attributes['attachment'] = $uploaded->getSecurePath();
-                Storage::disk('public')->delete($value);
+                $cloudinary = new \Cloudinary\Cloudinary([
+                    'cloud' => [
+                        'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+                        'api_key'    => env('CLOUDINARY_API_KEY'),
+                        'api_secret' => env('CLOUDINARY_API_SECRET'),
+                    ],
+                ]);
+                $result = $cloudinary->uploadApi()->upload($path, ['folder' => 'leaves']);
+                $this->attributes['attachment'] = $result['secure_url'];
+                \Storage::disk('public')->delete($value);
                 return;
             }
         }
