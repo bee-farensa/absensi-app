@@ -58,7 +58,7 @@ class BrandingController extends Controller
             'data' => [
                 'company_name' => $company->name,
                 // generate full URL Cloudinary secara dinamis agar aman dan fleksibel
-                'logo_url'     => $company->logo ? Storage::disk('cloudinary')->url($company->logo) : null,
+                'logo_url' => $company->logo ? Storage::disk('cloudinary')->url($company->logo) : null,
             ],
         ]);
     }

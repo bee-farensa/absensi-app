@@ -84,17 +84,13 @@ class LeaveRequestResource extends Resource
 
                         Forms\Components\FileUpload::make('attachment')
                             ->label('Bukti/Lampiran (Surat Dokter/Undangan)')
-                            ->directory('absensi/dokumen_izin')
-                            ->disk('cloudinary')
+                            ->directory('absensi/leaves')
+                            ->disk('public')
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'])
                             ->helperText('Format: JPG, PNG, atau PDF. Maks 2MB.')
                             ->maxSize(2048)
-                            ->columnSpanFull()
-                            ->getUploadedFileNameForStorageUsing(function (TemporaryUploadedFile $file): string {
-                                $filename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                                $slugName = Str::slug($filename);
-                                return 'izin-' . $slugName . '-' . time() . '.' . $file->getClientOriginalExtension();
-                            }),
+                            ->columnSpanFull(),
+                            
                     ])
             ]);
     }
@@ -121,7 +117,11 @@ class LeaveRequestResource extends Resource
                     ->formatStateUsing(fn($state) => $state ? 'Lihat Dokumen' : 'Tidak Ada Bukti')
                     ->color(fn($state) => $state ? 'primary' : 'gray')
                     ->icon(fn($state) => $state ? 'heroicon-o-document' : null)
-                    ->url(fn($record) => $record->attachment ? \Storage::disk('cloudinary')->url($record->attachment) : null)
+                    ->url(fn($record) => $record->attachment
+                        ? (str_starts_with($record->attachment, 'http')
+                            ? $record->attachment
+                            : asset('storage/' . $record->attachment))
+                        : null)
                     ->openUrlInNewTab(),
             ])
             ->filters([
