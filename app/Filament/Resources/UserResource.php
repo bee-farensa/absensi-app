@@ -147,6 +147,10 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('image')
+                    ->label('Foto')
+                    ->circular()
+                    ->getStateUsing(fn($record) => $record->image),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Karyawan')
                     ->description(fn($record) => "NIK: {$record->nik} | {$record->email}")
@@ -198,8 +202,6 @@ class UserResource extends Resource
                     ->query(fn(Builder $query) => $query->whereNull('face_embedding')),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
                 Tables\Actions\Action::make('reset_face')
                     ->label('Reset Wajah')
                     ->icon('heroicon-o-x-circle')
@@ -207,6 +209,8 @@ class UserResource extends Resource
                     ->requiresConfirmation()
                     ->visible(fn($record) => !empty($record->face_embedding))
                     ->action(fn($record) => $record->update(['face_embedding' => null])),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
