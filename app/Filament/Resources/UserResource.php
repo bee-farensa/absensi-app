@@ -45,7 +45,18 @@ class UserResource extends Resource
                             ->image()
                             ->disk('public')
                             ->avatar()
-                            ->imageEditor(),
+                            ->imageEditor()
+                            ->afterStateHydrated(function ($component, $state) {
+                                if ($state && str_starts_with((string) $state, 'http')) {
+                                    $component->state(null);
+                                }
+                            }),
+                        Forms\Components\Placeholder::make('foto_saat_ini')
+                            ->label('Foto Saat Ini')
+                            ->content(fn($record) => $record?->image
+                                ? new \Illuminate\Support\HtmlString('<img src="' . $record->image . '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">')
+                                : 'Belum ada foto')
+                            ->visible(fn($record) => $record?->image && str_starts_with((string) $record->image, 'http')),
 
                         Forms\Components\TextInput::make('name')
                             ->label('Nama Lengkap')
@@ -93,7 +104,8 @@ class UserResource extends Resource
                             ->label('Kantor Penempatan')
                             ->options(function (callable $get) {
                                 $companyId = $get('company_id');
-                                if (!$companyId) return [];
+                                if (!$companyId)
+                                    return [];
                                 return Office::where('company_id', $companyId)->pluck('name', 'id');
                             })
                             ->required(!$isSuperAdmin)
@@ -103,7 +115,8 @@ class UserResource extends Resource
                             ->label('Departemen')
                             ->options(function (callable $get) {
                                 $companyId = $get('company_id');
-                                if (!$companyId) return [];
+                                if (!$companyId)
+                                    return [];
                                 return Department::where('company_id', $companyId)->pluck('name', 'id');
                             })
                             ->reactive()
@@ -113,7 +126,8 @@ class UserResource extends Resource
                             ->label('Jabatan')
                             ->options(function (callable $get) {
                                 $companyId = $get('company_id');
-                                if (!$companyId) return [];
+                                if (!$companyId)
+                                    return [];
                                 return Position::where('company_id', $companyId)->pluck('name', 'id');
                             })
                             ->required(!$isSuperAdmin),
@@ -186,6 +200,13 @@ class UserResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+                Tables\Actions\Action::make('reset_face')
+                    ->label('Reset Wajah')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(fn($record) => !empty($record->face_embedding))
+                    ->action(fn($record) => $record->update(['face_embedding' => null])),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

@@ -40,4 +40,13 @@ class FaceController extends Controller
             'embedding' => $user->face_embedding,
         ]);
     }
+    public function destroy(Request $request)
+    {
+        $user = $request->user();
+        $user->update(['face_embedding' => null]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Data wajah berhasil dihapus.',
+        ]);
+    }
 }

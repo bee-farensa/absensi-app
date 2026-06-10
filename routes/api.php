@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Face Recognition
     Route::post('/face-enrollment', [FaceController::class, 'enroll']);      // Daftarkan wajah
+    Route::delete('/face-enrollment', [FaceController::class, 'destroy']);
     Route::get('/face-embedding', [FaceController::class, 'getEmbedding']); // Ambil embedding wajah
 
     // Profile Photo Management (Photo CRUD Only)
