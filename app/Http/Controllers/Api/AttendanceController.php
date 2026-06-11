@@ -17,16 +17,13 @@ class AttendanceController extends Controller
     {
         $user = $request->user();
         
-        // Validasi month dan year
         $month = (int) $request->query('month', Carbon::now()->month);
         $year = (int) $request->query('year', Carbon::now()->year);
         
-        // Ensure valid month range
         if ($month < 1 || $month > 12) {
             $month = Carbon::now()->month;
         }
         
-        // Ensure valid year range (prevent too old or too far future)
         $currentYear = Carbon::now()->year;
         if ($year < $currentYear - 5 || $year > $currentYear + 5) {
             $year = $currentYear;
@@ -47,9 +44,13 @@ class AttendanceController extends Controller
                     'is_late'       => (bool) $item->is_late,
                     'face_verified' => (bool) $item->face_verified,
                     'status'        => $item->time_out ? 'Lengkap' : 'Belum Checkout',
-                    // generate full URL Cloudinary untuk mobile jika path disimpan secara relatif
                     'pic_in'        => $item->pic_in ? Storage::disk('cloudinary')->url($item->pic_in) : null,
                     'pic_out'       => $item->pic_out ? Storage::disk('cloudinary')->url($item->pic_out) : null,
+                    // ✅ Tambahan lat/lng
+                    'lat_in'        => $item->lat_in,
+                    'long_in'       => $item->long_in,
+                    'lat_out'       => $item->lat_out,
+                    'long_out'      => $item->long_out,
                 ];
             });
 
@@ -84,7 +85,6 @@ class AttendanceController extends Controller
         $uploadedImagePath = null;
 
         try {
-            // 1. Ambil semua kantor milik perusahaan si user
             $offices = Office::where('company_id', $user->company_id)->get();
 
             if ($offices->isEmpty()) {
@@ -98,7 +98,6 @@ class AttendanceController extends Controller
             $nearestOffice = null;
             $minDistance   = PHP_INT_MAX;
 
-            // Cari kantor terdekat
             foreach ($offices as $office) {
                 $dist = $this->haversine(
                     $request->latitude,
@@ -113,10 +112,8 @@ class AttendanceController extends Controller
                 }
             }
 
-            // Cek apakah di luar radius kantor terdekat
             if ($minDistance > $nearestOffice->radius) {
                 $overflow = round($minDistance - $nearestOffice->radius);
-
                 return response()->json([
                     'message' => 'Anda berada di luar radius kantor ' . $overflow . ' meter',
                 ], 422);
@@ -124,7 +121,6 @@ class AttendanceController extends Controller
 
             $office = $nearestOffice;
 
-            // Validasi bahwa office milik company user
             if ($office->company_id !== $user->company_id) {
                 return response()->json([
                     'success' => false,
@@ -132,23 +128,17 @@ class AttendanceController extends Controller
                 ], 403);
             }
 
-            // Use database transaction to prevent race conditions
             return \DB::transaction(function () use ($request, $user, $today, $time, $office, &$uploadedImagePath) {
-                // Lock the row to prevent concurrent updates
                 $attendance = Attendance::where('user_id', $user->id)
                     ->where('date', $today)
                     ->lockForUpdate()
                     ->first();
 
-                // 3. Cek apakah sudah absen pulang
                 if ($attendance && $attendance->time_out) {
                     return response()->json(['message' => 'Anda sudah absen pulang hari ini'], 422);
                 }
 
                 if (!$attendance) {
-                    // ── CHECK-IN ──────────────────────────────────────────────────
-                    
-                    // Upload foto ke Cloudinary disk dengan folder penamaan sesuai Filament resource kemarin
                     $uploadedFile = $request->file('image');
                     $folder = 'absensi/foto_masuk';
                     $filename = 'in-' . time() . '-' . \Illuminate\Support\Str::random(5);
@@ -157,8 +147,6 @@ class AttendanceController extends Controller
                     $uploadedImagePath = $path;
 
                     $startTime = $office->check_in_time;
-
-                    // Toleransi keterlambatan 10 menit
                     $isLate = $startTime
                         ? Carbon::parse($time)->gt(Carbon::parse($startTime)->addMinutes(10))
                         : false;
@@ -177,10 +165,10 @@ class AttendanceController extends Controller
                     ]);
 
                     \Log::info('Attendance check-in', [
-                        'user_id' => $user->id,
-                        'office_id' => $office->id,
-                        'is_late' => $isLate,
-                        'face_verified' => $request->boolean('face_verified'),
+                        'user_id'      => $user->id,
+                        'office_id'    => $office->id,
+                        'is_late'      => $isLate,
+                        'face_verified'=> $request->boolean('face_verified'),
                     ]);
 
                     $statusLabel = $isLate ? ' (Terlambat)' : ' (Tepat Waktu)';
@@ -190,9 +178,8 @@ class AttendanceController extends Controller
                     ]);
 
                 } else {
-                    // ── CHECK-OUT ─────────────────────────────────────────────────
                     if ($attendance->time_in && !$attendance->time_out) {
-                        // Ini adalah check-out, lanjutkan
+                        // lanjut checkout
                     } else {
                         return response()->json([
                             'success' => false,
@@ -213,7 +200,7 @@ class AttendanceController extends Controller
                         if ($currentTime->lt($officialCheckOutTime) && $workedHours < 8) {
                             $remaining = $currentTime->diff($officialCheckOutTime)->format('%H jam %I menit');
                             $canCheckout = false;
-                            $checkoutMessage = "Belum waktunya absen pulang. Tunggu {$remaining} lagi .";
+                            $checkoutMessage = "Belum waktunya absen pulang. Tunggu {$remaining} lagi.";
                         }
                     }
 
@@ -224,7 +211,6 @@ class AttendanceController extends Controller
                         ], 422);
                     }
 
-                    // Upload foto pulang ke Cloudinary disk
                     $uploadedFile = $request->file('image');
                     $folder = 'absensi/foto_pulang';
                     $filename = 'out-' . time() . '-' . \Illuminate\Support\Str::random(5);
@@ -241,9 +227,9 @@ class AttendanceController extends Controller
                     ]);
 
                     \Log::info('Attendance check-out', [
-                        'user_id' => $user->id,
-                        'office_id' => $office->id,
-                        'face_verified' => $request->boolean('face_verified'),
+                        'user_id'      => $user->id,
+                        'office_id'    => $office->id,
+                        'face_verified'=> $request->boolean('face_verified'),
                     ]);
 
                     return response()->json([
@@ -252,8 +238,8 @@ class AttendanceController extends Controller
                     ]);
                 }
             });
+
         } catch (\Exception $e) {
-            // Bersihkan file di Cloudinary jika transaction gagal di tengah jalan
             if ($uploadedImagePath) {
                 Storage::disk('cloudinary')->delete($uploadedImagePath);
             }
@@ -268,7 +254,7 @@ class AttendanceController extends Controller
 
     private function haversine($lat1, $lon1, $lat2, $lon2)
     {
-        $earthRadius = 6371000; // dalam meter
+        $earthRadius = 6371000;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
         $a = sin($dLat / 2) * sin($dLat / 2) +
