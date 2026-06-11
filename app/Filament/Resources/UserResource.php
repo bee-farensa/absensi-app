@@ -153,7 +153,7 @@ class UserResource extends Resource
                     ->getStateUsing(fn($record) => $record->image),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama Karyawan')
-                    ->description(fn($record) => "NIK: {$record->nik} | {$record->email}")
+                    // ->description(fn($record) => "NIK: {$record->nik} | {$record->email}")
                     ->searchable()
                     ->sortable()
                     ->wrap(),
@@ -164,10 +164,10 @@ class UserResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: !auth()->user()->hasRole('super_admin')),
 
-                Tables\Columns\TextColumn::make('department.name')
-                    ->label('Departemen / Jabatan')
-                    ->description(fn($record) => $record->position?->name ?? '-')
-                    ->sortable(),
+                // Tables\Columns\TextColumn::make('department.name')
+                //     ->label('Departemen / Jabatan')
+                //     ->description(fn($record) => $record->position?->name ?? '-')
+                //     ->sortable(),
 
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Role')
