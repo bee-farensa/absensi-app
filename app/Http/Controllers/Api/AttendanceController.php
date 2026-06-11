@@ -39,6 +39,7 @@ class AttendanceController extends Controller
                 return [
                     'id'            => $item->id,
                     'date'          => $item->date,
+                    'office_name' => $item->office?->name ?? 'Kantor',
                     'time_in'       => $item->time_in,
                     'time_out'      => $item->time_out,
                     'is_late'       => (bool) $item->is_late,
@@ -46,7 +47,6 @@ class AttendanceController extends Controller
                     'status'        => $item->time_out ? 'Lengkap' : 'Belum Checkout',
                     'pic_in'        => $item->pic_in ? Storage::disk('cloudinary')->url($item->pic_in) : null,
                     'pic_out'       => $item->pic_out ? Storage::disk('cloudinary')->url($item->pic_out) : null,
-                    // ✅ Tambahan lat/lng
                     'lat_in'        => $item->lat_in,
                     'long_in'       => $item->long_in,
                     'lat_out'       => $item->lat_out,
