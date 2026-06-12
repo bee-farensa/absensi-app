@@ -167,7 +167,7 @@ class LeaveRequestController extends Controller
         }
 
         $query = LeaveRequest::with(['user.department', 'user.company'])
-            ->where('status', 'Pending')
+            ->whereIn('status', ['Pending', 'Approved', 'Rejected'])
             ->orderBy('created_at', 'desc');
 
         // Jika admin_pt, filter berdasarkan company_id dari user yang mengajukan
