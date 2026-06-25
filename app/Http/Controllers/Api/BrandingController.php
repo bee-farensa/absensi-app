@@ -57,8 +57,8 @@ class BrandingController extends Controller
             'success' => true,
             'data' => [
                 'company_name' => $company->name,
-                // Logo sudah berupa full URL dari Cloudinary (disimpan via setLogoAttribute)
-                'logo_url' => $company->logo,
+                // Generate full Cloudinary URL from path stored in database
+                'logo_url' => $company->logo ? Storage::disk('cloudinary')->url($company->logo) : null,
             ],
         ]);
     }
