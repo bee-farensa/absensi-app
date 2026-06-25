@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage; // <-- Import facade Storage
+use Illuminate\Support\Facades\Storage; 
 
 class BrandingController extends Controller
 {
@@ -57,8 +57,8 @@ class BrandingController extends Controller
             'success' => true,
             'data' => [
                 'company_name' => $company->name,
-                // generate full URL Cloudinary secara dinamis agar aman dan fleksibel
-                'logo_url' => $company->logo ? Storage::disk('cloudinary')->url($company->logo) : null,
+                // Logo sudah berupa full URL dari Cloudinary (disimpan via setLogoAttribute)
+                'logo_url' => $company->logo,
             ],
         ]);
     }
