@@ -219,56 +219,59 @@ class LeaveRequestController extends Controller
     }
 
     private function updateLeaveStatus(Request $request, $id, $status)
-    {
-        $user = $request->user();
+{
 
-        if (!$user->hasRole(['super_admin', 'admin_pt'])) {
+    $user = $request->user();
+    $leave = LeaveRequest::with('user.position', 'user.department')->find($id);
+    if (!$leave) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Data pengajuan tidak ditemukan.',
+        ], 404);
+    }
+
+    // Validasi status transition - hanya bisa approve/reject jika status Pending
+    if ($leave->status !== 'Pending') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Pengajuan ini sudah ' . strtolower($leave->status) . '. Tidak bisa diubah lagi.',
+        ], 422);
+    }
+
+    $employee = $leave->user;
+    $isSupervisor = $user->isSupervisorOf($employee);
+    $isFallbackAdmin = $user->hasRole(['super_admin', 'admin_pt']);
+    if (!$isSupervisor && !$isFallbackAdmin) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized. Anda bukan atasan dari karyawan ini.',
+        ], 403);
+    }
+
+    // Admin PT (bukan super_admin) tetap hanya boleh akses company sendiri
+
+    if ($isFallbackAdmin && $user->hasRole('admin_pt') && !$user->hasRole('super_admin')) {
+        if ($employee?->company_id !== $user->company_id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized.',
+                'message' => 'Pengajuan ini dari perusahaan lain.',
             ], 403);
         }
-
-        $leave = LeaveRequest::with('user')->find($id);
-
-        if (!$leave) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data pengajuan tidak ditemukan.',
-            ], 404);
-        }
-
-        // Validasi status transition - hanya bisa approve/reject jika status Pending
-        if ($leave->status !== 'Pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Pengajuan ini sudah ' . strtolower($leave->status) . '. Tidak bisa diubah lagi.',
-            ], 422);
-        }
-
-        // Pastikan admin PT hanya bisa approve data dari perusahaannya sendiri
-        if ($user->hasRole('admin_pt') && !$user->hasRole('super_admin')) {
-            if ($leave->user?->company_id !== $user->company_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Pengajuan ini dari perusahaan lain.',
-                ], 403);
-            }
-        }
-
-        $leave->update(['status' => $status]);
-
-        \Log::info('Leave request status updated', [
-            'leave_id' => $leave->id,
-            'user_id' => $leave->user_id,
-            'status' => $status,
-            'approved_by' => $user->id,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => "Pengajuan berhasil di-$status.",
-            'data'    => $leave
-        ]);
     }
+
+    $leave->update(['status' => $status]);
+    \Log::info('Leave request status updated', [
+        'leave_id' => $leave->id,
+        'user_id' => $leave->user_id,
+        'status' => $status,
+        'approved_by' => $user->id,
+        'approval_type' => $isSupervisor ? 'hierarchy' : 'admin_fallback',
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => "Pengajuan berhasil di-$status.",
+        'data'    => $leave,
+    ]);
+}
 }

@@ -70,6 +70,23 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->belongsTo(Position::class);
     }
+    public function isSupervisorOf(User $employee): bool
+
+{
+
+    // Harus punya position & department, dan company yang sama
+
+    if (!$this->position || !$employee->position) {
+        return false;
+    }
+    if ($this->company_id !== $employee->company_id) {
+        return false;
+    }
+    if ($this->department_id !== $employee->department_id) {
+        return false;
+    }
+    return $this->position->level < $employee->position->level;
+}
     public function setImageAttribute($value)
     {
         if ($value && !str_starts_with((string) $value, 'http')) {
