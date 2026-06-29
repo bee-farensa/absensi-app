@@ -36,34 +36,53 @@ class AttendanceExport implements FromCollection, WithHeadings, WithMapping, Wit
     }
 
     public function drawings()
-    {
-        $drawings = [];
+{
+    $drawings = [];
 
-        // Jika user adalah admin_pt, gunakan company_id dari user
-        $user = auth()->user();
-        $effectiveCompanyId = $this->companyId;
-        
-        if (!$effectiveCompanyId && $user && $user->hasRole('admin_pt')) {
-            $effectiveCompanyId = $user->company_id;
-        }
+    // Jika user adalah admin_pt, gunakan company_id dari user
+    $user = auth()->user();
+    $effectiveCompanyId = $this->companyId;
 
-        if ($effectiveCompanyId) {
-            $company = Company::find($effectiveCompanyId);
-            if ($company && $company->logo && file_exists(storage_path('app/public/' . $company->logo))) {
+    if (!$effectiveCompanyId && $user && $user->hasRole('admin_pt')) {
+        $effectiveCompanyId = $user->company_id;
+    }
+
+    if ($effectiveCompanyId) {
+        $company = Company::find($effectiveCompanyId);
+
+        if ($company && $company->logo) {
+            try {
+                // Ambil isi file logo dari Cloudinary
+                $logoContents = Storage::disk('cloudinary')->get($company->logo);
+
+                // Simpan sementara ke disk lokal, karena PhpSpreadsheet Drawing butuh file path
+                $tempPath = storage_path('app/temp_logo_' . uniqid() . '.png');
+                file_put_contents($tempPath, $logoContents);
+
                 $drawing = new Drawing();
                 $drawing->setName('Logo');
                 $drawing->setDescription('Company Logo');
-                $drawing->setPath(storage_path('app/public/' . $company->logo));
+                $drawing->setPath($tempPath);
                 $drawing->setHeight(85);
                 $drawing->setCoordinates('A1');
                 $drawing->setOffsetX(100);
                 $drawing->setOffsetY(17);
                 $drawings[] = $drawing;
+
+                // Hapus file temporary setelah export selesai dibuat
+                register_shutdown_function(function () use ($tempPath) {
+                    if (file_exists($tempPath)) {
+                        @unlink($tempPath);
+                    }
+                });
+            } catch (\Exception $e) {
+                \Log::warning('Gagal mengambil logo dari Cloudinary: ' . $e->getMessage());
             }
         }
-
-        return $drawings;
     }
+
+    return $drawings;
+}
 
     public function collection()
     {
@@ -175,15 +194,6 @@ class AttendanceExport implements FromCollection, WithHeadings, WithMapping, Wit
                 $boldRun->getFont()->setBold(true)->setSize(16)->setName('Calibri');
 
                 $richText->createText("\n");
-
-                // 2. Subtitle
-                $subtitleRun = $richText->createTextRun('Laporan Kehadiran Karyawan Terintegrasi');
-                $subtitleRun->getFont()
-                    ->setBold(false)
-                    ->setItalic(true)
-                    ->setSize(9)
-                    ->setName('Calibri')
-                    ->getColor()->setRGB('595959');
 
                 if ($companyAddress) {
                     $richText->createText("\n");
