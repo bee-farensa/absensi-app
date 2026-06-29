@@ -17,6 +17,7 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\RichText\RichText;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceExport implements FromCollection, WithHeadings, WithMapping, WithCustomStartCell, WithStyles, WithEvents, WithDrawings
 {
