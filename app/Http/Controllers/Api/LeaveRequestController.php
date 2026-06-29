@@ -156,51 +156,67 @@ class LeaveRequestController extends Controller
      * Daftar izin yang menunggu persetujuan (khusus Admin/Super Admin).
      */
     public function approvals(Request $request)
-    {
-        $user = $request->user();
+{
+    $user = $request->user();
 
-        if (!$user->hasRole(['super_admin', 'admin_pt'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda tidak memiliki akses.',
-            ], 403);
-        }
+    $isFallbackAdmin = $user->hasRole(['super_admin', 'admin_pt']);
+    $isSupervisorRole = $user->position && $user->department_id;
 
-        $query = LeaveRequest::with(['user.department', 'user.company'])
-            ->whereIn('status', ['Pending', 'Approved', 'Rejected'])
-            ->orderBy('created_at', 'desc');
-
-        // Jika admin_pt, filter berdasarkan company_id dari user yang mengajukan
-        if ($user->hasRole('admin_pt') && !$user->hasRole('super_admin')) {
-            $query->whereHas('user', function ($q) use ($user) {
-                $q->where('company_id', $user->company_id);
-            });
-        }
-
-        $perPage = (int) $request->query('per_page', 10);
-        $leaves  = $query->paginate($perPage);
-
-        $leaves->getCollection()->transform(function ($item) {
-            return [
-                'id'         => $item->id,
-                'user_name'  => $item->user?->name,
-                'user_nik'   => $item->user?->nik,
-                'department' => $item->user?->department?->name,
-                'type'       => $item->type,
-                'reason'     => $item->reason,
-                'start_date' => $item->start_date,
-                'end_date'   => $item->end_date,
-                'status'     => $item->status,
-                'attachment' => $item->attachment ? asset('storage/' . $item->attachment) : null,
-                'created_at' => $item->created_at->format('Y-m-d H:i'),
-            ];
-        });
-
+    if (!$isFallbackAdmin && !$isSupervisorRole) {
         return response()->json([
-            'success' => true,
-            'data'    => $leaves,
-        ]);
+            'success' => false,
+            'message' => 'Anda tidak memiliki akses.',
+        ], 403);
     }
+
+    $query = LeaveRequest::with(['user.department', 'user.company', 'user.position'])
+        ->whereIn('status', ['Pending', 'Approved', 'Rejected'])
+        ->orderBy('created_at', 'desc');
+
+    if ($user->hasRole('super_admin')) {
+        // Super admin lihat semua, gak perlu filter tambahan
+    } elseif ($user->hasRole('admin_pt')) {
+        // Admin PT: semua pengajuan dalam company-nya
+        $query->whereHas('user', function ($q) use ($user) {
+            $q->where('company_id', $user->company_id);
+        });
+    } else {
+        // Atasan biasa (by hierarchy): hanya pengajuan dari bawahannya
+        // (company sama, department sama, level lebih besar)
+        $query->whereHas('user', function ($q) use ($user) {
+            $q->where('company_id', $user->company_id)
+              ->where('department_id', $user->department_id)
+              ->whereHas('position', function ($posQuery) use ($user) {
+                  $posQuery->where('level', '>', $user->position->level);
+              });
+        });
+    }
+
+    $perPage = (int) $request->query('per_page', 10);
+    $leaves  = $query->paginate($perPage);
+
+    $leaves->getCollection()->transform(function ($item) {
+        return [
+            'id'         => $item->id,
+            'user_name'  => $item->user?->name,
+            'user_nik'   => $item->user?->nik,
+            'department' => $item->user?->department?->name,
+            'position'   => $item->user?->position?->name,
+            'type'       => $item->type,
+            'reason'     => $item->reason,
+            'start_date' => $item->start_date,
+            'end_date'   => $item->end_date,
+            'status'     => $item->status,
+            'attachment' => $item->attachment ? asset('storage/' . $item->attachment) : null,
+            'created_at' => $item->created_at->format('Y-m-d H:i'),
+        ];
+    });
+
+    return response()->json([
+        'success' => true,
+        'data'    => $leaves,
+    ]);
+}
 
     /**
      * PUT /api/leave/{id}/approve
