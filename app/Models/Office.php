@@ -18,6 +18,7 @@ class Office extends Model
         'latitude',
         'longitude',
         'radius',
+        'tolerance_coefficient',
         'check_in_time',
         'check_out_time',
     ];

@@ -74,6 +74,7 @@ class AttendanceController extends Controller
         $request->validate([
             'latitude'      => 'required|numeric|between:-90,90',
             'longitude'     => 'required|numeric|between:-180,180',
+            'accuracy'      => 'nullable|numeric|min:0',
             'image'         => 'required|image|mimes:jpeg,png,jpg|max:2048',
             'face_verified' => 'sometimes|boolean',
         ]);
@@ -112,8 +113,11 @@ class AttendanceController extends Controller
                 }
             }
 
-            if ($minDistance > $nearestOffice->radius) {
-                $overflow = round($minDistance - $nearestOffice->radius);
+            $gpsAccuracy = $request->input('accuracy', 0);
+            $effectiveRadius = $nearestOffice->radius + ($nearestOffice->tolerance_coefficient * $gpsAccuracy);
+
+            if ($minDistance > $effectiveRadius) {
+                $overflow = round($minDistance - $effectiveRadius);
                 return response()->json([
                     'message' => 'Anda berada di luar radius kantor ' . $overflow . ' meter',
                 ], 422);
@@ -159,6 +163,7 @@ class AttendanceController extends Controller
                         'time_in'       => $time,
                         'lat_in'        => $request->latitude,
                         'long_in'       => $request->longitude,
+                        'accuracy_in'   => $request->input('accuracy'),
                         'pic_in'        => $uploadedImagePath,
                         'is_late'       => $isLate,
                         'face_verified' => $request->boolean('face_verified'),
@@ -222,6 +227,7 @@ class AttendanceController extends Controller
                         'time_out'      => $time,
                         'lat_out'       => $request->latitude,
                         'long_out'      => $request->longitude,
+                        'accuracy_out'  => $request->input('accuracy'),
                         'pic_out'       => $uploadedImagePath,
                         'face_verified' => $request->boolean('face_verified'),
                     ]);
