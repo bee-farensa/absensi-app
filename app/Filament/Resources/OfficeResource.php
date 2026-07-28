@@ -87,6 +87,16 @@ class OfficeResource extends Resource
                                     ->suffix('Meter'),
                             ]),
 
+                        \Filament\Forms\Components\TextInput::make('tolerance_coefficient')
+                            ->label('Tolerance Coefficient')
+                            ->numeric()
+                            ->default(1.0)
+                            ->minValue(0.1)
+                            ->step(0.1)
+                            ->required()
+                            ->helperText('Kalikan dengan GPS accuracy untuk extended radius. Contoh: 0.5 (ketat), 1.0 (normal), 1.2 (toleransi)')
+                            ->hint('Default: 1.0'),
+
                         \Filament\Forms\Components\Section::make('Jam Operasional')
                             ->schema([
                                 \Filament\Forms\Components\TimePicker::make('check_in_time')
@@ -139,6 +149,14 @@ class OfficeResource extends Resource
                     ->icon('heroicon-m-map-pin')
                     ->color('success')
                     ->alignCenter(),
+
+                \Filament\Tables\Columns\TextColumn::make('tolerance_coefficient')
+                    ->label('Tolerance Coefficient')
+                    ->icon('heroicon-m-slider-horizontal')
+                    ->color('info')
+                    ->alignCenter()
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: false),
 
                 \Filament\Tables\Columns\TextColumn::make('location_details')
                     ->label('Koordinat')

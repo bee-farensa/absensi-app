@@ -169,6 +169,11 @@ class AttendanceController extends Controller
                         'face_verified' => $request->boolean('face_verified'),
                     ]);
 
+                    \Log::info('Attendance check-in with accuracy', [
+                        'user_id'       => $user->id,
+                        'accuracy_in'   => $request->input('accuracy'),
+                    ]);
+
                     \Log::info('Attendance check-in', [
                         'user_id'      => $user->id,
                         'office_id'    => $office->id,
@@ -230,6 +235,11 @@ class AttendanceController extends Controller
                         'accuracy_out'  => $request->input('accuracy'),
                         'pic_out'       => $uploadedImagePath,
                         'face_verified' => $request->boolean('face_verified'),
+                    ]);
+
+                    \Log::info('Attendance check-out with accuracy', [
+                        'user_id'       => $user->id,
+                        'accuracy_out'  => $request->input('accuracy'),
                     ]);
 
                     \Log::info('Attendance check-out', [
