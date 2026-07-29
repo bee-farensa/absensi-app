@@ -243,8 +243,25 @@ class ToleranceCoefficientTestResource extends Resource
                     ->label('Office')
                     ->relationship('office', 'name'),
 
-                Tables\Filters\DateFilter::make('test_date')
-                    ->label('Test Date'),
+                Tables\Filters\Filter::make('test_date')
+                    ->label('Test Date')
+                    ->form([
+                        Forms\Components\DatePicker::make('test_date_from')
+                            ->label('From'),
+                        Forms\Components\DatePicker::make('test_date_until')
+                            ->label('Until'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['test_date_from'] ?? null,
+                                fn (Builder $query, $date): Builder => $query->whereDate('test_date', '>=', $date),
+                            )
+                            ->when(
+                                $data['test_date_until'] ?? null,
+                                fn (Builder $query, $date): Builder => $query->whereDate('test_date', '<=', $date),
+                            );
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
