@@ -152,7 +152,7 @@ class OfficeResource extends Resource
 
                 \Filament\Tables\Columns\TextColumn::make('tolerance_coefficient')
                     ->label('Tolerance Coefficient')
-                    ->icon('heroicon-m-slider-horizontal')
+                    ->icon('heroicon-m-adjustments-horizontal')
                     ->color('info')
                     ->alignCenter()
                     ->badge()
