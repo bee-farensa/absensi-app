@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Office;
+use App\Models\ToleranceCoefficientTest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -116,8 +117,25 @@ class AttendanceController extends Controller
             $gpsAccuracy = $request->input('accuracy', 0);
             $effectiveRadius = $nearestOffice->radius + ($nearestOffice->tolerance_coefficient * $gpsAccuracy);
 
+            // Cek dulu ini bakal jadi percobaan check-in atau check-out, buat keperluan logging
+            $existingToday = Attendance::where('user_id', $user->id)->where('date', $today)->first();
+            $attemptType = (!$existingToday || $existingToday->time_out) ? 'check_in' : 'check_out';
+
             if ($minDistance > $effectiveRadius) {
                 $overflow = round($minDistance - $effectiveRadius);
+
+                $this->logToleranceCoefficientTest(
+                    $user,
+                    $nearestOffice,
+                    $attemptType,
+                    (float) $request->latitude,
+                    (float) $request->longitude,
+                    (float) $gpsAccuracy,
+                    (float) $minDistance,
+                    (float) $effectiveRadius,
+                    'rejected'
+                );
+
                 return response()->json([
                     'message' => 'Anda berada di luar radius kantor ' . $overflow . ' meter',
                 ], 422);
@@ -132,7 +150,7 @@ class AttendanceController extends Controller
                 ], 403);
             }
 
-            return \DB::transaction(function () use ($request, $user, $today, $time, $office, &$uploadedImagePath) {
+            return \DB::transaction(function () use ($request, $user, $today, $time, $office, &$uploadedImagePath, $minDistance, $effectiveRadius, $gpsAccuracy) {
                 $attendance = Attendance::where('user_id', $user->id)
                     ->where('date', $today)
                     ->lockForUpdate()
@@ -180,6 +198,18 @@ class AttendanceController extends Controller
                         'is_late'      => $isLate,
                         'face_verified'=> $request->boolean('face_verified'),
                     ]);
+
+                    $this->logToleranceCoefficientTest(
+                        $user,
+                        $office,
+                        'check_in',
+                        (float) $request->latitude,
+                        (float) $request->longitude,
+                        (float) $gpsAccuracy,
+                        (float) $minDistance,
+                        (float) $effectiveRadius,
+                        'accepted'
+                    );
 
                     $statusLabel = $isLate ? ' (Terlambat)' : ' (Tepat Waktu)';
                     return response()->json([
@@ -248,6 +278,18 @@ class AttendanceController extends Controller
                         'face_verified'=> $request->boolean('face_verified'),
                     ]);
 
+                    $this->logToleranceCoefficientTest(
+                        $user,
+                        $office,
+                        'check_out',
+                        (float) $request->latitude,
+                        (float) $request->longitude,
+                        (float) $gpsAccuracy,
+                        (float) $minDistance,
+                        (float) $effectiveRadius,
+                        'accepted'
+                    );
+
                     return response()->json([
                         'success' => true,
                         'message' => 'Berhasil absen pulang. Hati-hati dijalan!',
@@ -278,5 +320,45 @@ class AttendanceController extends Controller
             sin($dLon / 2) * sin($dLon / 2);
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
         return $earthRadius * $c;
+    }
+
+    /**
+     * Catat setiap percobaan absen (diterima atau ditolak) ke tabel tolerance_coefficient_tests,
+     * dipakai buat keperluan testing/riset adaptive radius. Dibungkus try-catch biar kalau
+     * logging ini gagal, proses absen utama tetap jalan normal.
+     */
+    private function logToleranceCoefficientTest(
+        $user,
+        $office,
+        string $attendanceType,
+        float $latitude,
+        float $longitude,
+        float $gpsAccuracy,
+        float $distanceToOffice,
+        float $effectiveRadius,
+        string $result
+    ): void {
+        try {
+            ToleranceCoefficientTest::create([
+                'office_id'             => $office->id,
+                'user_id'               => $user->id,
+                'company_id'            => $user->company_id,
+                'tolerance_coefficient' => $office->tolerance_coefficient,
+                'test_date'             => Carbon::today()->toDateString(),
+                'test_phase'            => 'auto_log',
+                'attendance_type'       => $attendanceType,
+                'attendance_time'       => Carbon::now()->toTimeString(),
+                'latitude'              => $latitude,
+                'longitude'             => $longitude,
+                'gps_accuracy'          => $gpsAccuracy,
+                'distance_to_office'    => $distanceToOffice,
+                'office_radius'         => $office->radius,
+                'effective_radius'      => $effectiveRadius,
+                'result'                => $result,
+                'distance_variance'     => $distanceToOffice - $effectiveRadius,
+            ]);
+        } catch (\Exception $e) {
+            \Log::warning('Gagal mencatat tolerance_coefficient_test', ['error' => $e->getMessage()]);
+        }
     }
 }
