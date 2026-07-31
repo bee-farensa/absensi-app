@@ -97,6 +97,11 @@ class OfficeResource extends Resource
                             ->helperText('Kalikan dengan GPS accuracy untuk extended radius. Contoh: 0.5 (ketat), 1.0 (normal), 1.2 (toleransi)')
                             ->hint('Default: 1.0'),
 
+                        \Filament\Forms\Components\Toggle::make('is_testing_mode')
+                            ->label('Mode Testing (Riset)')
+                            ->helperText('Kalau aktif, karyawan di kantor ini bisa absen berkali-kali tanpa batas — untuk keperluan pengujian adaptive radius.')
+                            ->default(false),
+
                         \Filament\Forms\Components\Section::make('Jam Operasional')
                             ->schema([
                                 \Filament\Forms\Components\TimePicker::make('check_in_time')

@@ -17,14 +17,14 @@ class AttendanceController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        
+
         $month = (int) $request->query('month', Carbon::now()->month);
         $year = (int) $request->query('year', Carbon::now()->year);
-        
+
         if ($month < 1 || $month > 12) {
             $month = Carbon::now()->month;
         }
-        
+
         $currentYear = Carbon::now()->year;
         if ($year < $currentYear - 5 || $year > $currentYear + 5) {
             $year = $currentYear;
@@ -83,7 +83,7 @@ class AttendanceController extends Controller
         $user  = $request->user();
         $today = Carbon::today()->toDateString();
         $time  = Carbon::now()->toTimeString();
-        
+
         $uploadedImagePath = null;
 
         try {
@@ -116,6 +116,37 @@ class AttendanceController extends Controller
 
             $gpsAccuracy = $request->input('accuracy', 0);
             $effectiveRadius = $nearestOffice->radius + ($nearestOffice->tolerance_coefficient * $gpsAccuracy);
+
+            // === MODE TESTING ===
+            // Kalau kantor ini lagi mode testing, skip logic absen harian (attendances)
+            // sepenuhnya. Cukup hitung jarak & catat ke tolerance_coefficient_tests,
+            // lalu langsung balas ke app. Bisa dipanggil berkali-kali tanpa batas.
+            if ($nearestOffice->is_testing_mode) {
+                $result = $minDistance <= $effectiveRadius ? 'accepted' : 'rejected';
+
+                $this->logToleranceCoefficientTest(
+                    $user,
+                    $nearestOffice,
+                    'test_manual',
+                    (float) $request->latitude,
+                    (float) $request->longitude,
+                    (float) $gpsAccuracy,
+                    (float) $minDistance,
+                    (float) $effectiveRadius,
+                    $result
+                );
+
+                return response()->json([
+                    'success'            => true,
+                    'testing_mode'       => true,
+                    'message'            => $result === 'accepted'
+                        ? 'Testing: lokasi diterima (jarak ' . round($minDistance) . 'm)'
+                        : 'Testing: lokasi ditolak (jarak ' . round($minDistance) . 'm, radius efektif ' . round($effectiveRadius) . 'm)',
+                    'distance_to_office' => round($minDistance, 2),
+                    'effective_radius'   => round($effectiveRadius, 2),
+                    'gps_accuracy'       => $gpsAccuracy,
+                ]);
+            }
 
             // Cek dulu ini bakal jadi percobaan check-in atau check-out, buat keperluan logging
             $existingToday = Attendance::where('user_id', $user->id)->where('date', $today)->first();
@@ -164,7 +195,7 @@ class AttendanceController extends Controller
                     $uploadedFile = $request->file('image');
                     $folder = 'absensi/foto_masuk';
                     $filename = 'in-' . time() . '-' . \Illuminate\Support\Str::random(5);
-                    
+
                     $path = Storage::disk('cloudinary')->putFileAs($folder, $uploadedFile, $filename . '.' . $uploadedFile->getClientOriginalExtension());
                     $uploadedImagePath = $path;
 
@@ -196,7 +227,7 @@ class AttendanceController extends Controller
                         'user_id'      => $user->id,
                         'office_id'    => $office->id,
                         'is_late'      => $isLate,
-                        'face_verified'=> $request->boolean('face_verified'),
+                        'face_verified' => $request->boolean('face_verified'),
                     ]);
 
                     $this->logToleranceCoefficientTest(
@@ -216,7 +247,6 @@ class AttendanceController extends Controller
                         'success' => true,
                         'message' => 'Berhasil absen masuk. Selamat bekerja!' . $statusLabel,
                     ]);
-
                 } else {
                     if ($attendance->time_in && !$attendance->time_out) {
                         // lanjut checkout
@@ -254,7 +284,7 @@ class AttendanceController extends Controller
                     $uploadedFile = $request->file('image');
                     $folder = 'absensi/foto_pulang';
                     $filename = 'out-' . time() . '-' . \Illuminate\Support\Str::random(5);
-                    
+
                     $path = Storage::disk('cloudinary')->putFileAs($folder, $uploadedFile, $filename . '.' . $uploadedFile->getClientOriginalExtension());
                     $uploadedImagePath = $path;
 
@@ -275,7 +305,7 @@ class AttendanceController extends Controller
                     \Log::info('Attendance check-out', [
                         'user_id'      => $user->id,
                         'office_id'    => $office->id,
-                        'face_verified'=> $request->boolean('face_verified'),
+                        'face_verified' => $request->boolean('face_verified'),
                     ]);
 
                     $this->logToleranceCoefficientTest(
@@ -296,13 +326,12 @@ class AttendanceController extends Controller
                     ]);
                 }
             });
-
         } catch (\Exception $e) {
             if ($uploadedImagePath) {
                 Storage::disk('cloudinary')->delete($uploadedImagePath);
             }
             \Log::error('Attendance store error', ['error' => $e->getMessage(), 'user_id' => $user->id]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat menyimpan absensi. Silakan coba lagi.',
