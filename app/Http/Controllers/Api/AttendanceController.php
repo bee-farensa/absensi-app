@@ -127,13 +127,14 @@ class AttendanceController extends Controller
                 $this->logToleranceCoefficientTest(
                     $user,
                     $nearestOffice,
-                    'test_manual',
+                    'check_in',
                     (float) $request->latitude,
                     (float) $request->longitude,
                     (float) $gpsAccuracy,
                     (float) $minDistance,
                     (float) $effectiveRadius,
-                    $result
+                    $result,
+                    'testing_mode'
                 );
 
                 return response()->json([
@@ -365,7 +366,8 @@ class AttendanceController extends Controller
         float $gpsAccuracy,
         float $distanceToOffice,
         float $effectiveRadius,
-        string $result
+        string $result,
+        string $testPhase = 'auto_log'
     ): void {
         try {
             ToleranceCoefficientTest::create([
@@ -374,7 +376,7 @@ class AttendanceController extends Controller
                 'company_id'            => $user->company_id,
                 'tolerance_coefficient' => $office->tolerance_coefficient,
                 'test_date'             => Carbon::today()->toDateString(),
-                'test_phase'            => 'auto_log',
+                'test_phase'            => $testPhase,
                 'attendance_type'       => $attendanceType,
                 'attendance_time'       => Carbon::now()->toTimeString(),
                 'latitude'              => $latitude,
