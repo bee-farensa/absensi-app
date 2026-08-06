@@ -76,7 +76,7 @@ class AttendanceController extends Controller
             'latitude'      => 'required|numeric|between:-90,90',
             'longitude'     => 'required|numeric|between:-180,180',
             'accuracy'      => 'nullable|numeric|min:0',
-            'image'         => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'image'         => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'face_verified' => 'sometimes|boolean',
         ]);
 
@@ -116,6 +116,17 @@ class AttendanceController extends Controller
 
             $gpsAccuracy = $request->input('accuracy', 0);
             $effectiveRadius = $nearestOffice->radius + ($nearestOffice->tolerance_coefficient * $gpsAccuracy);
+
+            // Foto/verifikasi wajah cuma wajib buat presensi harian beneran.
+            // Pas testing_mode aktif, foto boleh nggak dikirim sama sekali —
+            // biar pengujian adaptive radius murni ngukur geofencing, tanpa
+            // variabel pengganggu dari proses capture/pencocokan wajah.
+            if (!$nearestOffice->is_testing_mode && !$request->hasFile('image')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Foto wajah wajib diisi untuk presensi.',
+                ], 422);
+            }
 
             // === MODE TESTING ===
             // Kalau kantor ini lagi mode testing, skip logic absen harian (attendances)
