@@ -67,6 +67,11 @@ class CompanyResource extends Resource
                             ->label('Nama Perusahaan')
                             ->required()
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('phone_number')
+                            ->label('Nomor Telepon Perusahaan')
+                            ->tel()
+                            ->maxLength(20)
+                            ->visible(fn (string $context): bool => $context === 'edit'),
                     ]),
 
                 // SECTION 3: KANTOR PUSAT

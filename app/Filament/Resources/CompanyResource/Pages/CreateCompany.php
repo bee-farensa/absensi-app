@@ -9,7 +9,12 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateCompany extends CreateRecord
 {
     protected static string $resource = CompanyResource::class;
+    protected function mutateFormDataBeforeCreate(array $data): array
+{
+        $data['phone_number'] = $this->data['office_phone_number'] ?? null;
 
+    return $data;
+}
     protected function afterCreate(): void
     {
         $company = $this->record;
